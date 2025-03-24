@@ -1,0 +1,25 @@
+spring:
+  datasource:
+    type: com.zaxxer.hikari.HikariDataSource
+    driver-class-name: org.sqlite.JDBC
+#    url: "jdbc:sqlite:/app/logs/tg_archive.db"
+    url: "jdbc:sqlite:D:\\app.db"
+  ai:
+    openai:
+      api-key: "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"
+
+openai:
+  api-key: "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"
+
+bot:
+  oneOrEveryday: one # one or everyday ,Log storage: one file per day or everyday
+  message:
+    conversation_timeout: 20 #Maximum time a single session can exist in minutes
+    max_context: 20 #Maximum maintainable context length for a single user
+
+
+#  docker run -d \
+#  -v /home/ec2-user/data/message_logs:/app/logs \
+#  --name TgBot \
+#  -it\
+#  tg-bot:1
