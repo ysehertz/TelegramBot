@@ -1,13 +1,17 @@
 package com.bot.aabot;
 
+import com.bot.aabot.initializer.BotContext;
 import com.bot.aabot.service.GPTService;
 import com.bot.aabot.service.SqlService;
 import com.fasterxml.jackson.databind.introspect.AnnotatedClass;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import org.telegram.telegrambots.abilitybots.api.bot.AbilityBot;
 import org.telegram.telegrambots.abilitybots.api.db.DBContext;
 import org.telegram.telegrambots.abilitybots.api.objects.Ability;
+import org.telegram.telegrambots.abilitybots.api.objects.Locality;
+import org.telegram.telegrambots.abilitybots.api.objects.Privacy;
 import org.telegram.telegrambots.abilitybots.api.toggle.AbilityToggle;
 import org.telegram.telegrambots.client.okhttp.OkHttpTelegramClient;
 import org.telegram.telegrambots.longpolling.interfaces.LongPollingUpdateConsumer;
@@ -39,7 +43,7 @@ public class MyAmazingBot extends AbilityBot{
 
     @Override
     public long creatorId() {
-        return 7744901692l;
+        return BotContext.CreateId;
     }
 
     @Override
@@ -69,6 +73,28 @@ public class MyAmazingBot extends AbilityBot{
                 .locality(ALL)
                 .privacy(PUBLIC)
                 .action(ctx -> silent.send("Hello world!", ctx.chatId()))
+                .build();
+    }
+
+    public Ability startAbility() {
+        return Ability
+                .builder()
+                .name("start")
+                .info("开始使用机器人")
+                .locality(Locality.ALL)
+                .privacy(Privacy.PUBLIC)
+                .action((ctx) -> this.silent.send(String.join("\n", "欢迎使用机器人！", "我可以帮你回答各种问题。", "直接发送你的问题即可。"), ctx.chatId()))
+                .build();
+    }
+
+    public Ability helpAbility() {
+        return Ability
+                .builder()
+                .name("help")
+                .info("显示帮助信息")
+                .locality(Locality.ALL)
+                .privacy(Privacy.PUBLIC)
+                .action((ctx) -> this.silent.send(String.join("\n", "机器人使用帮助：", "1. 直接发送问题，我会尽力回答", "2. 使用 /start 开始使用", "3. 使用 /help 显示此帮助信息"), ctx.chatId()))
                 .build();
     }
 }

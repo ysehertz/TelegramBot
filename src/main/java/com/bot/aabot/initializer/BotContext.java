@@ -25,12 +25,16 @@ public class BotContext implements InitializingBean {
     private int conversation_timeout;
     @Value("${bot.message.max_context}")
     private int max_context;
+    @Value("${bot.message.createId}")
+    private Long create_id;
+    public static Long CreateId;
     public static int MaxContext;
     public static int ConversationTimeout;
     public static String OneOrEveryday;
     
     @Override
     public void afterPropertiesSet() {
+        CreateId = create_id;
         MaxContext = max_context;
         ConversationTimeout = conversation_timeout;
         OneOrEveryday = oneOrEveryday;
