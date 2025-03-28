@@ -76,7 +76,9 @@ public class SqlService {
     }
 
     public SendMessage resMessage(Update update){
+        System.out.println("开始判断");
         if(gptService.isQuestion(update.getMessage().getText())){
+            System.out.println("是问题");
             // 构建user为群聊id加用户id
             String user = update.getMessage().getChatId()+"_"+update.getMessage().getFrom().getId();
             GPTAnswer gptAnswer = gptService.answerUserQuestion(user,update.getMessage().getText());

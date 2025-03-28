@@ -25,7 +25,7 @@ public class BotContext implements InitializingBean {
     private int conversation_timeout;
     @Value("${bot.message.max_context}")
     private int max_context;
-    @Value("${bot.message.createId}")
+    @Value("${bot.createId}")
     private Long create_id;
     public static Long CreateId;
     public static int MaxContext;
