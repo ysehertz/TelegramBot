@@ -1,7 +1,6 @@
 package com.bot.aabot.config;
 
 import lombok.Data;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Configuration;
 
 import java.util.Arrays;
@@ -14,64 +13,61 @@ import java.util.List;
 @Configuration
 public class KnowledgeBaseConfig {
     
-    /**
-     * 知识库文件夹路径
-     */
-    @Value("${bot.knowledge.directory-path}")
-    private String knowledgeDirectoryPath;
+    private final BotConfig botConfig;
     
-    /**
-     * 支持的文件类型（逗号分隔）
-     */
-    @Value("${bot.knowledge.file-types}")
-    private String fileTypesString;
+    public KnowledgeBaseConfig(BotConfig botConfig) {
+        this.botConfig = botConfig;
+    }
     
-    /**
-     * 是否递归搜索子文件夹
-     */
-    @Value("${bot.knowledge.recursive}")
-    private boolean recursive;
+    public String getKnowledgeDirectoryPath() {
+        return botConfig.getKnowledge().getDirectoryPath();
+    }
     
-    /**
-     * 知识库更新频率（分钟）
-     */
-    @Value("${bot.knowledge.update-interval}")
-    private int updateInterval;
+    public void setKnowledgeDirectoryPath(String path) {
+        botConfig.getKnowledge().setDirectoryPath(path);
+    }
     
-    /**
-     * 文本块大小（字符数）
-     */
-    @Value("${bot.knowledge.chunk-size}")
-    private int chunkSize;
+    public String getFileTypesString() {
+        return botConfig.getKnowledge().getFileTypes();
+    }
     
-    /**
-     * 文本块重叠大小（字符数）
-     */
-    @Value("${bot.knowledge.chunk-overlap}")
-    private int chunkOverlap;
+    public void setFileTypesString(String fileTypes) {
+        botConfig.getKnowledge().setFileTypes(fileTypes);
+    }
     
-    /**
-     * 相似度检索结果数量
-     */
-    @Value("${bot.knowledge.top-k}")
-    private int topK;
+    public boolean isRecursive() {
+        return botConfig.getKnowledge().isRecursive();
+    }
     
-    /**
-     * 相似度阈值
-     */
-    @Value("${bot.knowledge.similarity-threshold}")
-    private double similarityThreshold;
+    public void setRecursive(boolean recursive) {
+        botConfig.getKnowledge().setRecursive(recursive);
+    }
     
-    /**
-     * OpenAI嵌入模型名称
-     */
-    @Value("${bot.knowledge.embedding-model}")
-    private String embeddingModel;
+    public int getUpdateInterval() {
+        return botConfig.getKnowledge().getUpdateInterval();
+    }
     
-    /**
-     * 获取支持的文件类型列表
-     */
+    public int getChunkSize() {
+        return botConfig.getKnowledge().getChunkSize();
+    }
+    
+    public int getChunkOverlap() {
+        return botConfig.getKnowledge().getChunkOverlap();
+    }
+    
+    public int getTopK() {
+        return botConfig.getKnowledge().getTopK();
+    }
+    
+    public double getSimilarityThreshold() {
+        return botConfig.getKnowledge().getSimilarityThreshold();
+    }
+    
+    public String getEmbeddingModel() {
+        return botConfig.getKnowledge().getEmbeddingModel();
+    }
+    
     public List<String> getSupportedFileTypes() {
-        return Arrays.asList(fileTypesString.split(","));
+        return Arrays.asList(getFileTypesString().split(","));
     }
 } 
