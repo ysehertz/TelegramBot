@@ -1,5 +1,6 @@
 package com.bot.aabot;
 
+import com.bot.aabot.entity.TextMessageEntity;
 import com.bot.aabot.initializer.BotContext;
 import com.bot.aabot.service.GPTService;
 import com.bot.aabot.service.SqlService;
@@ -21,6 +22,7 @@ import org.telegram.telegrambots.longpolling.util.LongPollingSingleThreadUpdateC
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
 import org.telegram.telegrambots.meta.api.objects.PhotoSize;
 import org.telegram.telegrambots.meta.api.objects.Update;
+import org.telegram.telegrambots.meta.api.objects.message.Message;
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 import org.telegram.telegrambots.meta.generics.TelegramClient;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -63,18 +65,18 @@ public class MyAmazingBot extends AbilityBot{
         }else if(update.hasEditedMessage()){
             sqlService.editMessage(update);
         }
-        if(update.hasMessage() && update.getMessage().hasText()){
-            SendMessage sendMessage;
-            if( (sendMessage = sqlService.resMessage(update)) != null) {
-                try {
-                    telegramClient.execute(sendMessage);
-                } catch (TelegramApiException e) {
-                    e.printStackTrace();
-                }
-            }
-        }
         super.consume(update);
     }
+
+    // 回复消息
+    public void replyMessage(SendMessage message) {
+        try {
+            telegramClient.execute(message);
+        } catch (TelegramApiException e) {
+            e.printStackTrace();
+        }
+    }
+
     public Ability sayHelloWorld() {
         return Ability
                 .builder()

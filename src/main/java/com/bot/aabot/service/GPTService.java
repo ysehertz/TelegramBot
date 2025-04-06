@@ -27,8 +27,7 @@ public class GPTService {
     
     @Value("${openai.api-key}")
     private String openaiApiKey;
-    
-    private final VectorStoreService vectorStoreService;
+
     
     // 存储用户会话的Map，键为用户ID，值为用户会话对象
     private final Map<String, UserConversation> userConversations = new ConcurrentHashMap<>();
@@ -36,8 +35,7 @@ public class GPTService {
     // 定时清理过期会话的调度器
     private final ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(1);
     
-    public GPTService(VectorStoreService vectorStoreService) {
-        this.vectorStoreService = vectorStoreService;
+    public GPTService() {
         // 启动定时任务，每分钟检查一次过期会话
         scheduler.scheduleAtFixedRate(this::cleanExpiredConversations, 1, 1, TimeUnit.MINUTES);
     }
@@ -85,16 +83,16 @@ public class GPTService {
         // 准备完整的对话历史
         List<ChatMessage> conversationHistory = new ArrayList<>(conversation.getMessages());
         
-        // 从知识库检索相关内容
-        List<TextChunk> relevantChunks = vectorStoreService.isEmpty() 
-                ? List.of() 
-                : vectorStoreService.similaritySearch(question);
-        
-        // 构建系统提示，包含知识库相关内容
-        String systemPrompt = buildSystemPrompt(relevantChunks);
-        
-        // 在对话历史开头添加系统消息
-        conversationHistory.add(0, new ChatMessage("system", systemPrompt));
+//        // 从知识库检索相关内容
+//        List<TextChunk> relevantChunks = vectorStore.isEmpty()
+//                ? List.of()
+//                : vectorStore.similaritySearch(question);
+//
+//        // 构建系统提示，包含知识库相关内容
+//        String systemPrompt = buildSystemPrompt(relevantChunks);
+//
+//        // 在对话历史开头添加系统消息
+//        conversationHistory.add(0, new ChatMessage("system", systemPrompt));
         
         // 调用OpenAI API获取回答
         OpenAiService service = new OpenAiService(openaiApiKey);
@@ -151,7 +149,56 @@ public class GPTService {
             return lastActiveTime.plusMinutes(BotContext.ConversationTimeout).isBefore(now);
         });
     }
-    
+
+    public boolean isBeAnswered() {
+        // 获取消息上下文列表
+        if (com.bot.aabot.context.MessageContext.messageContextList.isEmpty() || 
+            com.bot.aabot.context.MessageContext.messageContextList.size() < 2) {
+            return false;
+        }
+        
+        // 获取第一条消息
+        com.bot.aabot.entity.TextMessageEntity firstMessage = com.bot.aabot.context.MessageContext.messageContextList.get(0);
+        
+        OpenAiService service = new OpenAiService(openaiApiKey);
+        
+        // 构建消息列表，让ChatGPT判断
+        List<ChatMessage> messages = new ArrayList<>();
+        
+        // 系统提示，告诉GPT它需要做什么
+        messages.add(new ChatMessage("system", "你是一个逻辑分析助手。你的任务是分析一组消息，判断其中是否存在对第一条消息的逻辑回复。" +
+                "请只返回'yes'或'no'，不要包含其他内容。"));
+        
+        // 用户消息，提供第一条消息和后续所有消息
+        StringBuilder userMessage = new StringBuilder();
+        userMessage.append("第一条消息:\n").append(firstMessage.getContent()).append("\n\n");
+        userMessage.append("后续消息:\n");
+        
+        for (int i = 1; i < com.bot.aabot.context.MessageContext.messageContextList.size(); i++) {
+            com.bot.aabot.entity.TextMessageEntity message = com.bot.aabot.context.MessageContext.messageContextList.get(i);
+            userMessage.append("- ").append(message.getContent()).append("\n");
+        }
+        
+        userMessage.append("\n请判断后续消息中是否有对第一条消息的逻辑回复？请只回答'yes'或'no'。");
+        
+        messages.add(new ChatMessage("user", userMessage.toString()));
+        
+        // 创建请求
+        ChatCompletionRequest chatCompletionRequest = ChatCompletionRequest
+                .builder()
+                .model("gpt-4o-mini")
+                .messages(messages)
+                .build();
+        
+        // 获取响应
+        String response = service.createChatCompletion(chatCompletionRequest)
+                .getChoices().get(0).getMessage().getContent().trim().toLowerCase();
+        
+        log.info("GPT判断消息是否有回复的结果: {}", response);
+        
+        return "yes".equals(response);
+    }
+
     /**
      * 用户会话类，存储用户的对话历史
      */

@@ -1,5 +1,7 @@
 package com.bot.aabot.context;
 
+import lombok.Data;
+
 import java.util.Date;
 
 /**
@@ -11,6 +13,7 @@ import java.util.Date;
  * @version 1.0
  * @createTime 2025/3/19
  */
+
 public class DataContext {
     public static String tableName ;
     public static String resTableName;

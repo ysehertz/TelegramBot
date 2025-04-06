@@ -48,6 +48,8 @@ public class ConfigManagementService {
      * 更新配置并持久化到文件
      */
     public void updateConfig(Map<String, Object> updates) throws IOException {
+        Map<String, Object> update = new HashMap<>();
+        update.put("bot", updates);
         // 创建新的配置Map
         Map<String, Object> newConfig = new HashMap<>();
         
@@ -55,7 +57,7 @@ public class ConfigManagementService {
         newConfig.put("bot", createBotConfigMap());
         
         // 更新配置
-        updateConfigMap(newConfig, updates);
+        updateConfigMap(newConfig, update);
         
         // 将更新后的配置写回文件
         writeConfigToFile(newConfig);
