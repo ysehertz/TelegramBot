@@ -64,6 +64,8 @@ public class MyAmazingBot extends AbilityBot{
             sqlService.saveMessage(update);
         }else if(update.hasEditedMessage()){
             sqlService.editMessage(update);
+        }else if(update.hasCallbackQuery()){
+            sqlService.callbackQuery(update);
         }
         super.consume(update);
     }
@@ -106,7 +108,26 @@ public class MyAmazingBot extends AbilityBot{
                 .info("显示帮助信息")
                 .locality(Locality.ALL)
                 .privacy(Privacy.PUBLIC)
-                .action((ctx) -> this.silent.send(String.join("\n", "机器人使用帮助：", "1. 直接发送问题，我会尽力回答", "2. 使用 /start 开始使用", "3. 使用 /help 显示此帮助信息"), ctx.chatId()))
+                .action((ctx) -> this.silent.send(String.join("\n", 
+                        "机器人使用帮助：", 
+                        "1. 直接发送问题，我会尽力回答", 
+                        "2. 使用 /start 开始使用", 
+                        "3. 使用 /help 显示此帮助信息",
+                        "4. 使用 /clearc 清除所有用户会话记录（仅管理员可用）"), ctx.chatId()))
+                .build();
+    }
+
+    public Ability clearConversationsAbility() {
+        return Ability
+                .builder()
+                .name("clearc")
+                .info("清除所有用户的会话记录")
+                .locality(Locality.ALL)
+                .privacy(Privacy.CREATOR) // 只有创建者可以使用此命令
+                .action((ctx) -> {
+                    int count = gptService.clearAllConversations();
+                    this.silent.send(String.format("已成功清除所有用户会话记录，共 %d 个会话。", count), ctx.chatId());
+                })
                 .build();
     }
 

@@ -7,6 +7,7 @@ import com.theokanning.openai.completion.chat.ChatCompletionRequest;
 import com.theokanning.openai.completion.chat.ChatMessage;
 import com.theokanning.openai.service.OpenAiService;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
@@ -27,7 +28,11 @@ public class GPTService {
     
     @Value("${openai.api-key}")
     private String openaiApiKey;
+    @Value("${bot.knowledge.use-qdrant}")
+    private boolean useQdrant;
 
+    @Autowired
+    private QdrantClientService qdrantSearchService;
     
     // 存储用户会话的Map，键为用户ID，值为用户会话对象
     private final Map<String, UserConversation> userConversations = new ConcurrentHashMap<>();
@@ -61,7 +66,71 @@ public class GPTService {
 
         return "yes".equals(response);
     }
-    
+
+    /**
+     * 当用户@机器人时回答用户问题，考虑对话上下文，并结合知识库提供更准确的回答
+     * @param userId 用户ID
+     * @param question 用户问题
+     * @return GPTAnswer对象，包含AI回答和会话ID
+     */
+    public GPTAnswer answerUserQuestionWithAit(String userId, String question) {
+        // 获取或创建用户会话
+        UserConversation conversation = userConversations.computeIfAbsent(
+                userId, id -> new UserConversation(userId)
+        );
+
+        // 更新最后活动时间
+        conversation.updateLastActiveTime();
+
+        // 将用户问题添加到会话
+        conversation.addMessage(new ChatMessage("user", question));
+
+        // 准备完整的对话历史
+        List<ChatMessage> conversationHistory = new ArrayList<>(conversation.getMessages());
+
+        // 从知识库检索相关内容（如果启用了Qdrant）
+        List<TextChunk> relevantChunks = new ArrayList<>();
+        if (useQdrant) {
+            log.info("正在从Qdrant知识库中检索与问题相关的内容: {}", question);
+            relevantChunks = qdrantSearchService.searchSimilarDocuments(question);
+
+            if (!relevantChunks.isEmpty()) {
+                log.info("从知识库检索到{}个相关文档", relevantChunks.size());
+            } else {
+                log.info("知识库中未找到相关内容");
+            }
+        }
+
+        // 构建系统提示，包含知识库相关内容
+        String systemPrompt = buildSystemPromptWithAit(relevantChunks);
+
+        // 在对话历史开头添加系统消息
+        conversationHistory.add(0, new ChatMessage("system", systemPrompt));
+
+        // 调用OpenAI API获取回答
+        OpenAiService service = new OpenAiService(openaiApiKey);
+
+        ChatCompletionRequest chatCompletionRequest = ChatCompletionRequest
+                .builder()
+                .model("gpt-4o")
+                .messages(conversationHistory)
+                .build();
+
+        // 获取AI响应
+        String response = service.createChatCompletion(chatCompletionRequest)
+                .getChoices().get(0).getMessage().getContent();
+
+        // 将AI回答添加到会话
+        conversation.addMessage(new ChatMessage("assistant", response));
+
+        // 创建并返回GPTAnswer对象
+        GPTAnswer gptAnswer = new GPTAnswer();
+        gptAnswer.setAnswer(response);
+        gptAnswer.setSessionId(userId + "_" + conversation.getCreationTimestamp());
+
+        return gptAnswer;
+    }
+
     /**
      * 回答用户问题，考虑对话上下文，并结合知识库提供更准确的回答
      * @param userId 用户ID
@@ -82,17 +151,25 @@ public class GPTService {
         
         // 准备完整的对话历史
         List<ChatMessage> conversationHistory = new ArrayList<>(conversation.getMessages());
-        
-//        // 从知识库检索相关内容
-//        List<TextChunk> relevantChunks = vectorStore.isEmpty()
-//                ? List.of()
-//                : vectorStore.similaritySearch(question);
-//
-//        // 构建系统提示，包含知识库相关内容
-//        String systemPrompt = buildSystemPrompt(relevantChunks);
-//
-//        // 在对话历史开头添加系统消息
-//        conversationHistory.add(0, new ChatMessage("system", systemPrompt));
+
+        // 从知识库检索相关内容（如果启用了Qdrant）
+        List<TextChunk> relevantChunks = new ArrayList<>();
+        if (useQdrant) {
+            log.info("正在从Qdrant知识库中检索与问题相关的内容: {}", question);
+            relevantChunks = qdrantSearchService.searchSimilarDocuments(question);
+
+            if (!relevantChunks.isEmpty()) {
+                log.info("从知识库检索到{}个相关文档", relevantChunks.size());
+            } else {
+                log.info("知识库中未找到相关内容");
+            }
+        }
+
+        // 构建系统提示，包含知识库相关内容
+        String systemPrompt = buildSystemPrompt(relevantChunks);
+
+        // 在对话历史开头添加系统消息
+        conversationHistory.add(0, new ChatMessage("system", systemPrompt));
         
         // 调用OpenAI API获取回答
         OpenAiService service = new OpenAiService(openaiApiKey);
@@ -117,7 +194,25 @@ public class GPTService {
         
         return gptAnswer;
     }
-    
+
+    private String buildSystemPromptWithAit(List<TextChunk> relevantChunks) {
+        StringBuilder prompt = new StringBuilder();
+        prompt.append("你是一个知识渊博且友好的助理，请根据用户的问题，用英语提供一个简略的回答，并给出三个提示短语，你只能用英语进行回答。回答格式为：{\"reply\":\"简略回答\",\"guide1\":\"提示短语1\",\"guide2\":\"提示短语2\",\"guide3\":\"提示短语3\"}");
+
+        if (!relevantChunks.isEmpty()) {
+            prompt.append("\n\n以下是与用户问题相关的知识库内容，请在回答时优先使用这些信息：\n\n");
+
+            for (int i = 0; i < relevantChunks.size(); i++) {
+                prompt.append("--- 相关信息 ").append(i + 1).append(" ---\n");
+                prompt.append(relevantChunks.get(i).getContent()).append("\n\n");
+            }
+
+            prompt.append("请基于以上知识库内容回答用户问题。如果知识库中没有相关信息，请使用你自己的知识提供回答，但请在JSON格式的reply字段中指出你的回答是否参考了知识库还是只有你自己的知识。所有回答必须严格按照指定的JSON格式。");
+        }
+
+        return prompt.toString();
+    }
+
     /**
      * 构建系统提示，包含知识库相关内容
      */
@@ -133,7 +228,7 @@ public class GPTService {
                 prompt.append(relevantChunks.get(i).getContent()).append("\n\n");
             }
             
-            prompt.append("请基于以上知识库内容回答用户问题。如果知识库中没有相关信息，请使用你自己的知识提供回答，但请明确指出这部分不是来自知识库。");
+            prompt.append("请基于以上知识库内容回答用户问题。如果知识库中没有相关信息，请使用你自己的知识提供回答，但请一定在回答的第一句中指出你的回答是否参考了知识库还是只有你自己的知识。");
         }
         
         return prompt.toString();
@@ -148,6 +243,17 @@ public class GPTService {
             LocalDateTime lastActiveTime = entry.getValue().getLastActiveTime();
             return lastActiveTime.plusMinutes(BotContext.ConversationTimeout).isBefore(now);
         });
+    }
+    
+    /**
+     * 清除所有用户会话
+     * @return 清除的会话数量
+     */
+    public int clearAllConversations() {
+        int size = userConversations.size();
+        userConversations.clear();
+        log.info("已清除所有用户会话，共{}个", size);
+        return size;
     }
 
     public boolean isBeAnswered() {

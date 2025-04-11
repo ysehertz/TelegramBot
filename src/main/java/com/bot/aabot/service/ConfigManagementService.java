@@ -5,6 +5,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.core.io.FileSystemResource;
 import org.springframework.stereotype.Service;
@@ -25,20 +27,33 @@ public class ConfigManagementService {
     private final BotConfig botConfig;
     private final ObjectMapper objectMapper;
     private final YAMLFactory yamlFactory;
+    private final ApplicationEventPublisher eventPublisher;
     
     private static final String CONFIG_FILE_NAME = "bot-config.yml";
+    
+    @Value("${bot.config.path:}")
+    private String externalConfigPath;
     
     /**
      * 获取配置文件的路径
      */
     private String getConfigFilePath() throws IOException {
-        // 首先尝试从classpath获取文件
+        // 如果指定了外部配置文件路径，优先使用外部配置
+        if (externalConfigPath != null && !externalConfigPath.isEmpty()) {
+            Path externalPath = Paths.get(externalConfigPath, CONFIG_FILE_NAME);
+            // 确保目录存在
+            Files.createDirectories(externalPath.getParent());
+            return externalPath.toString();
+        }
+        
+        // 尝试从classpath获取文件
         ClassPathResource resource = new ClassPathResource(CONFIG_FILE_NAME);
         if (resource.exists()) {
             // 获取文件的实际路径
             File file = resource.getFile();
             return file.getAbsolutePath();
         }
+        
         // 如果文件不存在，则创建在classpath目录下
         String classpathDir = resource.getClassLoader().getResource("").getPath();
         return Paths.get(classpathDir, CONFIG_FILE_NAME).toString();
@@ -80,7 +95,7 @@ public class ConfigManagementService {
         botMap.put("message", messageMap);
         
         Map<String, Object> knowledgeMap = new HashMap<>();
-        knowledgeMap.put("directoryPath", botConfig.getKnowledge().getDirectoryPath());
+//        knowledgeMap.put("directoryPath", botConfig.getKnowledge().getDirectoryPath());
         knowledgeMap.put("fileTypes", botConfig.getKnowledge().getFileTypes());
         knowledgeMap.put("recursive", botConfig.getKnowledge().isRecursive());
         knowledgeMap.put("updateInterval", botConfig.getKnowledge().getUpdateInterval());

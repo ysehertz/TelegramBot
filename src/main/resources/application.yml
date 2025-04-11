@@ -20,7 +20,7 @@ openai:
 logging:
   level:
     root: INFO
-    com.bot.aabot.service: INFO # 将日志级别设置为DEBUG可以看到更多处理细节
+    com.bot.aabot.service: info # 将日志级别设置为DEBUG可以看到更多处理细节
 
 #  docker run -d \
 #  -v /home/ec2-user/data/message_logs:/app/logs \

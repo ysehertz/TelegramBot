@@ -46,10 +46,10 @@ public class MessageTask {
             // 获取消息发送时间
             long sendTime = Long.parseLong(MessageContext.messageContextList.get(0).getSendTime());
             // 如果当前时间与消息发送时间相差30分钟
-            if (currentTime - sendTime >=  1 * 60 ) {
+            if (currentTime - sendTime >=  30 * 60 ) {
                 if(MessageContext.messageContextList.get(0).isQuestion()&&!(gptService.isBeAnswered())){
-                    SendMessage sendMessage = sqlService.directResMessage(MessageContext.messageContextList.get(0));
-                    myAmazingBot.replyMessage(sendMessage);
+                    sqlService.directResMessage(MessageContext.messageContextList.get(0));
+//                    myAmazingBot.replyMessage(sendMessage);
                 }
                 MessageContext.messageContextList.remove(0);
             }else{
