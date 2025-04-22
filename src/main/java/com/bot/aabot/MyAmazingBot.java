@@ -4,6 +4,7 @@ import com.bot.aabot.entity.TextMessageEntity;
 import com.bot.aabot.initializer.BotContext;
 import com.bot.aabot.service.GPTService;
 import com.bot.aabot.service.SqlService;
+import com.bot.aabot.utils.LoggingUtils;
 import com.fasterxml.jackson.databind.introspect.AnnotatedClass;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -22,6 +23,7 @@ import org.telegram.telegrambots.longpolling.util.LongPollingSingleThreadUpdateC
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
 import org.telegram.telegrambots.meta.api.objects.PhotoSize;
 import org.telegram.telegrambots.meta.api.objects.Update;
+import org.telegram.telegrambots.meta.api.objects.message.MaybeInaccessibleMessage;
 import org.telegram.telegrambots.meta.api.objects.message.Message;
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 import org.telegram.telegrambots.meta.generics.TelegramClient;
@@ -29,9 +31,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.bot.aabot.service.ConfigManagementService;
 import org.telegram.telegrambots.abilitybots.api.objects.MessageContext;
 
-import java.util.Comparator;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 import static org.telegram.telegrambots.abilitybots.api.objects.Locality.ALL;
 import static org.telegram.telegrambots.abilitybots.api.objects.Privacy.PUBLIC;
@@ -48,34 +48,47 @@ public class MyAmazingBot extends AbilityBot{
     @Autowired
     private ObjectMapper objectMapper;
 
+
     protected MyAmazingBot() {
         super(new OkHttpTelegramClient("7647087531:AAEgk9kpws5RXS0pQg_iauLR1TT75JVjHXU"), "Tgbot");
     }
-
 
     @Override
     public long creatorId() {
         return BotContext.CreateId;
     }
 
+
     @Override
     public void consume(Update update) {
-        if(update.hasMessage()){
-            sqlService.saveMessage(update);
-        }else if(update.hasEditedMessage()){
-            sqlService.editMessage(update);
-        }else if(update.hasCallbackQuery()){
-            sqlService.callbackQuery(update);
+        long startTime = System.currentTimeMillis();
+        try {
+            if(update.hasMessage()){
+                sqlService.saveMessage(update);
+            }else if(update.hasEditedMessage()){
+                sqlService.editMessage(update);
+            }else if(update.hasCallbackQuery()){
+                sqlService.callbackQuery(update);
+            }else if(update.getMessageReaction() != null){
+                replyMessage(new SendMessage(String.valueOf(update.getMessageReaction().getChat().getId()), "收到表情回复"));
+            }
+            if(update.getMessageReaction() == null)
+                super.consume(update);
+            LoggingUtils.logPerformance("consume", startTime);
+        } catch (Exception e) {
+            LoggingUtils.logError("BOT_CONSUME_ERROR", "处理更新消息失败", e);
         }
-        super.consume(update);
     }
 
     // 回复消息
     public void replyMessage(SendMessage message) {
+        long startTime = System.currentTimeMillis();
         try {
             telegramClient.execute(message);
+            LoggingUtils.logOperation("REPLY_MESSAGE", String.valueOf(message.getChatId()), "回复消息成功");
+            LoggingUtils.logPerformance("replyMessage", startTime);
         } catch (TelegramApiException e) {
-            e.printStackTrace();
+            LoggingUtils.logError("REPLY_MESSAGE_ERROR", "回复消息失败", e);
         }
     }
 
@@ -86,7 +99,14 @@ public class MyAmazingBot extends AbilityBot{
                 .info("says hello world!")
                 .locality(ALL)
                 .privacy(PUBLIC)
-                .action(ctx -> silent.send("Hello world!", ctx.chatId()))
+                .action(ctx -> {
+                    try {
+                        silent.send("Hello world!", ctx.chatId());
+                        LoggingUtils.logOperation("SAY_HELLO", String.valueOf(ctx.chatId()), "发送Hello消息成功");
+                    } catch (Exception e) {
+                        LoggingUtils.logError("SAY_HELLO_ERROR", "发送Hello消息失败", e);
+                    }
+                })
                 .build();
     }
 
@@ -97,7 +117,14 @@ public class MyAmazingBot extends AbilityBot{
                 .info("开始使用机器人")
                 .locality(Locality.ALL)
                 .privacy(Privacy.PUBLIC)
-                .action((ctx) -> this.silent.send(String.join("\n", "欢迎使用机器人！", "我可以帮你回答各种问题。", "直接发送你的问题即可。"), ctx.chatId()))
+                .action((ctx) -> {
+                    try {
+                        this.silent.send(String.join("\n", "欢迎使用机器人！", "我可以帮你回答各种问题。", "直接发送你的问题即可。"), ctx.chatId());
+                        LoggingUtils.logOperation("START_BOT", String.valueOf(ctx.chatId()), "用户开始使用机器人");
+                    } catch (Exception e) {
+                        LoggingUtils.logError("START_BOT_ERROR", "启动机器人失败", e);
+                    }
+                })
                 .build();
     }
 
@@ -108,12 +135,19 @@ public class MyAmazingBot extends AbilityBot{
                 .info("显示帮助信息")
                 .locality(Locality.ALL)
                 .privacy(Privacy.PUBLIC)
-                .action((ctx) -> this.silent.send(String.join("\n", 
-                        "机器人使用帮助：", 
-                        "1. 直接发送问题，我会尽力回答", 
-                        "2. 使用 /start 开始使用", 
-                        "3. 使用 /help 显示此帮助信息",
-                        "4. 使用 /clearc 清除所有用户会话记录（仅管理员可用）"), ctx.chatId()))
+                .action((ctx) -> {
+                    try {
+                        this.silent.send(String.join("\n", 
+                                "机器人使用帮助：", 
+                                "1. 直接发送问题，我会尽力回答", 
+                                "2. 使用 /start 开始使用", 
+                                "3. 使用 /help 显示此帮助信息",
+                                "4. 使用 /clearc 清除所有用户会话记录（仅管理员可用）"), ctx.chatId());
+                        LoggingUtils.logOperation("SHOW_HELP", String.valueOf(ctx.chatId()), "显示帮助信息");
+                    } catch (Exception e) {
+                        LoggingUtils.logError("SHOW_HELP_ERROR", "显示帮助信息失败", e);
+                    }
+                })
                 .build();
     }
 
@@ -125,8 +159,13 @@ public class MyAmazingBot extends AbilityBot{
                 .locality(Locality.ALL)
                 .privacy(Privacy.CREATOR) // 只有创建者可以使用此命令
                 .action((ctx) -> {
-                    int count = gptService.clearAllConversations();
-                    this.silent.send(String.format("已成功清除所有用户会话记录，共 %d 个会话。", count), ctx.chatId());
+                    try {
+                        int count = gptService.clearAllConversations();
+                        this.silent.send(String.format("已成功清除所有用户会话记录，共 %d 个会话。", count), ctx.chatId());
+                        LoggingUtils.logOperation("CLEAR_CONVERSATIONS", String.valueOf(ctx.chatId()), "清除所有会话记录");
+                    } catch (Exception e) {
+                        LoggingUtils.logError("CLEAR_CONVERSATIONS_ERROR", "清除会话记录失败", e);
+                    }
                 })
                 .build();
     }
@@ -143,8 +182,9 @@ public class MyAmazingBot extends AbilityBot{
                         Map<String, Object> config = configManagementService.getCurrentConfig();
                         String configJson = objectMapper.writerWithDefaultPrettyPrinter().writeValueAsString(config);
                         silent.send("当前配置：\n" + configJson, ctx.chatId());
+                        LoggingUtils.logOperation("SHOW_CONFIG", String.valueOf(ctx.chatId()), "显示当前配置");
                     } catch (Exception e) {
-                        System.out.println(e.getMessage());
+                        LoggingUtils.logError("SHOW_CONFIG_ERROR", "显示配置失败", e);
                         silent.send("获取配置失败：" + e.getMessage(), ctx.chatId());
                     }
                 })
@@ -176,9 +216,10 @@ public class MyAmazingBot extends AbilityBot{
                         configManagementService.updateConfig(updates);
                         
                         silent.send("配置已更新", ctx.chatId());
+                        LoggingUtils.logOperation("UPDATE_CONFIG", String.valueOf(ctx.chatId()), "更新配置成功");
                     } catch (Exception e) {
-                        log.error("更新配置时出错:{}", e.getMessage());
-                        silent.send("更新配置失败" , ctx.chatId());
+                        LoggingUtils.logError("UPDATE_CONFIG_ERROR", "更新配置失败", e);
+                        silent.send("更新配置失败", ctx.chatId());
                     }
                 })
                 .build();

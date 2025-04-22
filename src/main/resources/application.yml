@@ -20,8 +20,21 @@ openai:
 logging:
   level:
     root: INFO
-    com.bot.aabot.service: info # 将日志级别设置为DEBUG可以看到更多处理细节
+    com.bot.aabot.service: INFO
+    com.bot.aabot.utils: INFO
+  file:
+    path: D:/logs
+#    path: /app/logs/tgLog
+  logback:
+    rollingpolicy:
+      max-file-size: 10MB
+      max-history: 30
+      total-size-cap: 5GB
+  cleanup:
+    days: 30
+    enabled: true
 
+# Docker运行示例
 #  docker run -d \
 #  -v /home/ec2-user/data/message_logs:/app/logs \
 #  --name TgBot \

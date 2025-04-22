@@ -3,6 +3,7 @@ package com.bot.aabot.service;
 import com.bot.aabot.entity.GPTAnswer;
 import com.bot.aabot.entity.TextChunk;
 import com.bot.aabot.initializer.BotContext;
+import com.bot.aabot.utils.LoggingUtils;
 import com.theokanning.openai.completion.chat.ChatCompletionRequest;
 import com.theokanning.openai.completion.chat.ChatMessage;
 import com.theokanning.openai.service.OpenAiService;
@@ -49,22 +50,29 @@ public class GPTService {
      * 判断输入字符串是否为问题
      */
     public boolean isQuestion(String input) {
-        OpenAiService service = new OpenAiService(openaiApiKey);
-        
-        List<ChatMessage> messages = new ArrayList<>();
-        messages.add(new ChatMessage("system", "你是一个消息分类助手。请判断下面的消息是否是一个问题或者提问或者请求。仅返回 'yes' 或 'no'。"));
-        messages.add(new ChatMessage("user", input));
+        long startTime = System.currentTimeMillis();
+        try {
+            OpenAiService service = new OpenAiService(openaiApiKey);
+            
+            List<ChatMessage> messages = new ArrayList<>();
+            messages.add(new ChatMessage("system", "你是一个消息分类助手。请判断下面的消息是否是一个问题或者提问或者请求。仅返回 'yes' 或 'no'。"));
+            messages.add(new ChatMessage("user", input));
 
-        ChatCompletionRequest chatCompletionRequest = ChatCompletionRequest
-                .builder()
-                .model("gpt-4o-mini")
-                .messages(messages)
-                .build();
+            ChatCompletionRequest chatCompletionRequest = ChatCompletionRequest
+                    .builder()
+                    .model("gpt-4o-mini")
+                    .messages(messages)
+                    .build();
 
-        String response = service.createChatCompletion(chatCompletionRequest)
-                .getChoices().get(0).getMessage().getContent().trim().toLowerCase();
+            String response = service.createChatCompletion(chatCompletionRequest)
+                    .getChoices().get(0).getMessage().getContent().trim().toLowerCase();
 
-        return "yes".equals(response);
+            LoggingUtils.logPerformance("isQuestion", startTime);
+            return "yes".equals(response);
+        } catch (Exception e) {
+            LoggingUtils.logError("GPT_API_ERROR", "判断问题类型失败", e);
+            return false;
+        }
     }
 
     /**
@@ -74,61 +82,71 @@ public class GPTService {
      * @return GPTAnswer对象，包含AI回答和会话ID
      */
     public GPTAnswer answerUserQuestionWithAit(String userId, String question) {
-        // 获取或创建用户会话
-        UserConversation conversation = userConversations.computeIfAbsent(
-                userId, id -> new UserConversation(userId)
-        );
+        long startTime = System.currentTimeMillis();
+        try {
+            // 获取或创建用户会话
+            UserConversation conversation = userConversations.computeIfAbsent(
+                    userId, id -> new UserConversation(userId)
+            );
 
-        // 更新最后活动时间
-        conversation.updateLastActiveTime();
+            // 更新最后活动时间
+            conversation.updateLastActiveTime();
 
-        // 将用户问题添加到会话
-        conversation.addMessage(new ChatMessage("user", question));
+            // 将用户问题添加到会话
+            conversation.addMessage(new ChatMessage("user", question));
 
-        // 准备完整的对话历史
-        List<ChatMessage> conversationHistory = new ArrayList<>(conversation.getMessages());
+            // 准备完整的对话历史
+            List<ChatMessage> conversationHistory = new ArrayList<>(conversation.getMessages());
 
-        // 从知识库检索相关内容（如果启用了Qdrant）
-        List<TextChunk> relevantChunks = new ArrayList<>();
-        if (useQdrant) {
-            log.info("正在从Qdrant知识库中检索与问题相关的内容: {}", question);
-            relevantChunks = qdrantSearchService.searchSimilarDocuments(question);
+            // 从知识库检索相关内容（如果启用了Qdrant）
+            List<TextChunk> relevantChunks = new ArrayList<>();
+            if (useQdrant) {
+                LoggingUtils.logOperation("KNOWLEDGE_SEARCH", userId, "开始检索知识库");
+                relevantChunks = qdrantSearchService.searchSimilarDocuments(question);
 
-            if (!relevantChunks.isEmpty()) {
-                log.info("从知识库检索到{}个相关文档", relevantChunks.size());
-            } else {
-                log.info("知识库中未找到相关内容");
+                if (!relevantChunks.isEmpty()) {
+                    LoggingUtils.logOperation("KNOWLEDGE_SEARCH", userId, "检索到" + relevantChunks.size() + "个相关文档");
+                } else {
+                    LoggingUtils.logOperation("KNOWLEDGE_SEARCH", userId, "未找到相关内容");
+                }
             }
+
+            // 构建系统提示，包含知识库相关内容
+            String systemPrompt = buildSystemPromptWithAit(relevantChunks);
+
+            // 在对话历史开头添加系统消息
+            conversationHistory.add(0, new ChatMessage("system", systemPrompt));
+
+            // 调用OpenAI API获取回答
+            OpenAiService service = new OpenAiService(openaiApiKey);
+
+            ChatCompletionRequest chatCompletionRequest = ChatCompletionRequest
+                    .builder()
+                    .model("gpt-4o")
+                    .messages(conversationHistory)
+                    .build();
+
+            // 获取AI响应
+            String response = service.createChatCompletion(chatCompletionRequest)
+                    .getChoices().get(0).getMessage().getContent();
+
+            // 将AI回答添加到会话
+            conversation.addMessage(new ChatMessage("assistant", response));
+
+            // 创建并返回GPTAnswer对象
+            GPTAnswer gptAnswer = new GPTAnswer();
+            gptAnswer.setAnswer(response);
+            gptAnswer.setSessionId(userId + "_" + conversation.getCreationTimestamp());
+
+            LoggingUtils.logPerformance("answerUserQuestionWithAit", startTime);
+            return gptAnswer;
+        } catch (Exception e) {
+            LoggingUtils.logError("GPT_API_ERROR", "回答用户问题失败", e);
+            GPTAnswer errorAnswer = new GPTAnswer();
+            errorAnswer.setAnswer("抱歉，处理您的请求时出现错误，请稍后再试。");
+            errorAnswer.setSessionId(userId + "_error");
+            return errorAnswer;
         }
-
-        // 构建系统提示，包含知识库相关内容
-        String systemPrompt = buildSystemPromptWithAit(relevantChunks);
-
-        // 在对话历史开头添加系统消息
-        conversationHistory.add(0, new ChatMessage("system", systemPrompt));
-
-        // 调用OpenAI API获取回答
-        OpenAiService service = new OpenAiService(openaiApiKey);
-
-        ChatCompletionRequest chatCompletionRequest = ChatCompletionRequest
-                .builder()
-                .model("gpt-4o")
-                .messages(conversationHistory)
-                .build();
-
-        // 获取AI响应
-        String response = service.createChatCompletion(chatCompletionRequest)
-                .getChoices().get(0).getMessage().getContent();
-
-        // 将AI回答添加到会话
-        conversation.addMessage(new ChatMessage("assistant", response));
-
-        // 创建并返回GPTAnswer对象
-        GPTAnswer gptAnswer = new GPTAnswer();
-        gptAnswer.setAnswer(response);
-        gptAnswer.setSessionId(userId + "_" + conversation.getCreationTimestamp());
-
-        return gptAnswer;
     }
 
     /**
@@ -238,11 +256,22 @@ public class GPTService {
      * 清理过期的会话
      */
     private void cleanExpiredConversations() {
-        LocalDateTime now = LocalDateTime.now();
-        userConversations.entrySet().removeIf(entry -> {
-            LocalDateTime lastActiveTime = entry.getValue().getLastActiveTime();
-            return lastActiveTime.plusMinutes(BotContext.ConversationTimeout).isBefore(now);
-        });
+        try {
+            LocalDateTime now = LocalDateTime.now();
+            int removedCount = 0;
+            for (var entry : userConversations.entrySet()) {
+                LocalDateTime lastActiveTime = entry.getValue().getLastActiveTime();
+                if (lastActiveTime.plusMinutes(BotContext.ConversationTimeout).isBefore(now)) {
+                    userConversations.remove(entry.getKey());
+                    removedCount++;
+                }
+            }
+            if (removedCount > 0) {
+                LoggingUtils.logSystemStatus("清理了" + removedCount + "个过期会话");
+            }
+        } catch (Exception e) {
+            LoggingUtils.logError("SESSION_CLEANUP", "清理过期会话失败", e);
+        }
     }
     
     /**
@@ -250,10 +279,15 @@ public class GPTService {
      * @return 清除的会话数量
      */
     public int clearAllConversations() {
-        int size = userConversations.size();
-        userConversations.clear();
-        log.info("已清除所有用户会话，共{}个", size);
-        return size;
+        try {
+            int count = userConversations.size();
+            userConversations.clear();
+            LoggingUtils.logSystemStatus("清除了所有用户会话，共" + count + "个");
+            return count;
+        } catch (Exception e) {
+            LoggingUtils.logError("SESSION_CLEAR", "清除所有会话失败", e);
+            return 0;
+        }
     }
 
     public boolean isBeAnswered() {

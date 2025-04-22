@@ -6,7 +6,11 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Lazy;
 import org.telegram.telegrambots.longpolling.TelegramBotsLongPollingApplication;
+import org.telegram.telegrambots.longpolling.util.DefaultGetUpdatesGenerator;
+import org.telegram.telegrambots.meta.TelegramUrl;
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
+
+import java.util.List;
 
 @Configuration
 public class TelegramBotConfig {
@@ -26,7 +30,10 @@ public class TelegramBotConfig {
         // 通过ApplicationContext获取MyAmazingBot实例
         MyAmazingBot myAmazingBot = applicationContext.getBean(MyAmazingBot.class);
         myAmazingBot.onRegister();
-        application.registerBot(BOT_TOKEN, myAmazingBot);
+
+        DefaultGetUpdatesGenerator defaultGetUpdatesGenerator = new DefaultGetUpdatesGenerator(List.of("message_reaction","message"));
+
+        application.registerBot(BOT_TOKEN,() -> TelegramUrl.DEFAULT_URL, defaultGetUpdatesGenerator,myAmazingBot);
         
         return application;
     }
