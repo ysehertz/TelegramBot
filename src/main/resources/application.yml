@@ -8,10 +8,35 @@ spring:
     openai:
       api-key: "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"
   config:
-    import: bot-config.yml
+    import: bot-config.yml,score-config.yml
 
 openai:
   api-key: "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"
+
+# Bot相关配置
+bot:
+  name: "Tgbot"
+  # 消息队列配置
+  message-queue:
+    max-size: 500        # 消息队列最大容量
+    poll-interval: 60     # 队列轮询间隔（秒）
+    batch-size: 10        # 批处理大小
+  # 异步处理配置
+  async:
+    core-pool-size: 5     # 核心线程数
+    max-pool-size: 20     # 最大线程数
+    queue-capacity: 500   # 线程池队列容量
+    thread-name-prefix: "bot-async-"
+  # 高并发处理配置
+  concurrency:
+    message-timeout: 50000    # 消息处理超时时间（毫秒）
+    max-retries: 3           # 最大重试次数
+    circuit-breaker-threshold: 10  # 熔断器阈值
+    # 重试配置
+    retry-delay: 1000        # 重试延迟（毫秒）
+    retry-backoff-multiplier: 2  # 退避倍数
+    # 熔断器配置
+    circuit-breaker-timeout: 60000  # 熔断恢复时间（毫秒）
 
 # JVM优化参数（在启动脚本中添加）：
 # -Xmx1g -Xms512m -XX:+UseG1GC -XX:MaxGCPauseMillis=200

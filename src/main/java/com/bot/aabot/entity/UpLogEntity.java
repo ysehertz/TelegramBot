@@ -24,4 +24,6 @@ public class UpLogEntity {
     private String messageType;
     private String message;
     private Integer sendTime;
+    private Long chatId;
+    private Integer topicId;
 }

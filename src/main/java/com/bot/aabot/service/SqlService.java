@@ -8,6 +8,7 @@ import com.bot.aabot.entity.TextMessageEntity;
 import com.bot.aabot.entity.UpLogEntity;
 import com.bot.aabot.utils.LoggingUtils;
 import com.bot.aabot.utils.SQLiteUtil;
+import com.bot.aabot.utils.BotReplyUtil;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -23,8 +24,10 @@ import org.telegram.telegrambots.meta.api.objects.replykeyboard.InlineKeyboardMa
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.InlineKeyboardButton;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.InlineKeyboardRow;
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
+import org.springframework.scheduling.annotation.Async;
 
 import java.util.Comparator;
+import java.util.concurrent.CompletableFuture;
 
 /**
  * ClassName: SqlService
@@ -48,19 +51,30 @@ public class SqlService {
     private SQLiteUtil sqLiteUtil;
     @Autowired
     JdbcTemplate jdbcTemplate;
+    
+    // 新增：注入重试和熔断器服务
+    @Autowired
+    private RetryService retryService;
+    @Autowired
+    private CircuitBreakerService circuitBreakerService;
 
+    /**
+     * 保存消息（带重试和熔断器）
+     */
     public void saveMessage(Update update) {
         long startTime = System.currentTimeMillis();
         try {
             Message message = update.getMessage();
-            String sql = "INSERT INTO "+ DataContext.tableName +" (form_name, message_id, user_id, user_name, message_type, message, send_time) "
-                    + "VALUES (?, ?, ?, ?, ?, ?, datetime(? , 'unixepoch', 'localtime'))";
+            String sql = "INSERT INTO "+ DataContext.tableName +" (form_name, message_id, user_id, user_name, message_type, message, send_time, chat_id, topic_id) "
+                    + "VALUES (?, ?, ?, ?, ?, ?, datetime(? , 'unixepoch', 'localtime'), ?, ?)";
             UpLogEntity upLogEntity = new UpLogEntity();
             upLogEntity.setMessageId(message.getMessageId());
             upLogEntity.setUserId(message.getFrom().getId());
             upLogEntity.setUserName(message.getFrom().getUserName());
             upLogEntity.setFormName(update.getMessage().getChat().getTitle());
             upLogEntity.setSendTime(message.getDate());
+            upLogEntity.setChatId(message.getChatId());
+            upLogEntity.setTopicId(message.getMessageThreadId() != null ? message.getMessageThreadId() : null);
             
             if(message.hasPhoto()){
                 upLogEntity.setMessageType("photo");
@@ -78,9 +92,9 @@ public class SqlService {
                             // 如果提及的是当前机器人的用户名
                             if (mention.startsWith("@") && mention.substring(1).equals(botName)) {
                                 // 去除@botName
-                                String text = message.getText().substring(entity.getOffset() + entity.getLength()).trim();
+                                String text = message.getText().replace(mention, "").trim();
                                 isAit = true;
-                                // 直接回复消息
+                                // 使用重试机制处理@消息
                                 TextMessageEntity textMessageEntity = TextMessageEntity.builder()
                                         .sessionId(update.getMessage().getChatId())
                                         .messageId(update.getMessage().getMessageId())
@@ -89,7 +103,7 @@ public class SqlService {
                                         .isQuestion(gptService.isQuestion(update.getMessage().getText()))
                                         .update(update)
                                         .build();
-                                aitMessage(textMessageEntity);
+                                aitMessageWithRetry(textMessageEntity);
                             }
                         }
                     }
@@ -112,51 +126,103 @@ public class SqlService {
                 upLogEntity.setMessageType("other");
                 upLogEntity.setMessage("other");
             }
-            jdbcTemplate.update(sql, upLogEntity.getFormName(), upLogEntity.getMessageId(), upLogEntity.getUserId(), upLogEntity.getUserName(), upLogEntity.getMessageType(), upLogEntity.getMessage(), upLogEntity.getSendTime());
-            LoggingUtils.logOperation("SAVE_MESSAGE", String.valueOf(upLogEntity.getUserId()), "保存消息成功");
+            
+            // 使用重试和熔断器保存消息到数据库
+            saveMessageWithRetryAndCircuitBreaker(sql, upLogEntity);
+            
             LoggingUtils.logPerformance("saveMessage", startTime);
         } catch (Exception e) {
             LoggingUtils.logError("SAVE_MESSAGE_ERROR", "保存消息失败", e);
         }
     }
+    
+    /**
+     * 带重试和熔断器的数据库保存操作
+     */
+    private void saveMessageWithRetryAndCircuitBreaker(String sql, UpLogEntity upLogEntity) {
+        retryService.executeWithRetryAndCircuitBreaker(() -> {
+            jdbcTemplate.update(sql, 
+                upLogEntity.getFormName(), 
+                upLogEntity.getMessageId(), 
+                upLogEntity.getUserId(), 
+                upLogEntity.getUserName(), 
+                upLogEntity.getMessageType(), 
+                upLogEntity.getMessage(), 
+                upLogEntity.getSendTime(), 
+                upLogEntity.getChatId(), 
+                upLogEntity.getTopicId());
+            
+            LoggingUtils.logOperation("SAVE_MESSAGE", String.valueOf(upLogEntity.getUserId()), "保存消息成功");
+            return null;
+        }, "DATABASE_SAVE", circuitBreakerService)
+        .exceptionally(throwable -> {
+            LoggingUtils.logError("SAVE_MESSAGE_FINAL_FAILURE", "数据库保存最终失败", (Exception) throwable);
+            return null;
+        });
+    }
 
     /**
-     * 处理回调查询
+     * 带重试的@消息处理
+     */
+    private void aitMessageWithRetry(TextMessageEntity textMessageEntity) {
+        retryService.executeWithRetryAndCircuitBreaker(() -> {
+            aitMessage(textMessageEntity);
+            return null;
+        }, "AIT_MESSAGE_PROCESS", circuitBreakerService)
+        .exceptionally(throwable -> {
+            LoggingUtils.logError("AIT_MESSAGE_RETRY_FAILED", "@消息处理重试失败", (Exception) throwable);
+            return null;
+        });
+    }
+
+    /**
+     * 处理回调查询（异步 + 重试）
      * @param update 更新对象
      */
+    @Async
     public void callbackQuery(Update update) {
         if ("click the button below to learn more:".equals(update.getCallbackQuery().getData())){
             return;
         }
         long startTime = System.currentTimeMillis();
-        try {
-            Long senderId = null;
-            Integer messageId = null;
+        
+        // 使用重试和熔断器处理回调查询
+        retryService.executeWithRetryAndCircuitBreaker(() -> {
             try {
-                MaybeInaccessibleMessage message = update.getCallbackQuery().getMessage();
-                if (message instanceof Message) {
-                    Message concreteMessage = (Message) message;
-                    if (concreteMessage.getReplyToMessage() != null) {
-                        senderId = concreteMessage.getReplyToMessage().getFrom().getId();
-                        messageId = concreteMessage.getReplyToMessage().getMessageId();
+                Long senderId = null;
+                Integer messageId = null;
+                try {
+                    MaybeInaccessibleMessage message = update.getCallbackQuery().getMessage();
+                    if (message instanceof Message) {
+                        Message concreteMessage = (Message) message;
+                        if (concreteMessage.getReplyToMessage() != null) {
+                            senderId = concreteMessage.getReplyToMessage().getFrom().getId();
+                            messageId = concreteMessage.getReplyToMessage().getMessageId();
+                        } else {
+                            throw new Exception("消息没有回复");
+                        }
                     } else {
-                        throw new Exception("消息没有回复");
+                        LoggingUtils.logError("CALLBACK_ERROR", "无法访问消息内容或消息不是标准Message类型", null);
                     }
-                } else {
-                    LoggingUtils.logError("CALLBACK_ERROR", "无法访问消息内容或消息不是标准Message类型", null);
+                } catch (Exception e) {
+                    LoggingUtils.logError("CALLBACK_ERROR", "获取回复消息发送者ID时出错", e);
                 }
+                if (update.getCallbackQuery().getFrom().getId().equals(senderId) ){
+                    callbackMessage(update,messageId);
+                }else {
+                    resRefuseMessage(update);
+                }
+                LoggingUtils.logPerformance("callbackQuery", startTime);
+                return null;
             } catch (Exception e) {
-                LoggingUtils.logError("CALLBACK_ERROR", "获取回复消息发送者ID时出错", e);
+                LoggingUtils.logError("CALLBACK_ERROR", "处理回调查询失败", e);
+                throw new RuntimeException(e); // 重新抛出以触发重试
             }
-            if (update.getCallbackQuery().getFrom().getId().equals(senderId) ){
-                callbackMessage(update,messageId);
-            }else {
-                resRefuseMessage(update);
-            }
-            LoggingUtils.logPerformance("callbackQuery", startTime);
-        } catch (Exception e) {
-            LoggingUtils.logError("CALLBACK_ERROR", "处理回调查询失败", e);
-        }
+        }, "CALLBACK_QUERY_PROCESS", circuitBreakerService)
+        .exceptionally(throwable -> {
+            LoggingUtils.logError("CALLBACK_QUERY_FINAL_FAILURE", "回调查询处理最终失败", (Exception) throwable);
+            return null;
+        });
     }
 
     // 本地保存消息
@@ -170,8 +236,18 @@ public class SqlService {
                     .isQuestion(gptService.isQuestion(update.getMessage().getText()))
                     .update(update)
                     .build();
-            MessageContext.messageContextList.add(textMessageEntity);
-            LoggingUtils.logOperation("LOCAL_SAVE", String.valueOf(update.getMessage().getFrom().getId()), "本地保存消息成功");
+            
+            // 使用新的线程安全队列方法
+            boolean success = MessageContext.offerMessage(textMessageEntity);
+            if (success) {
+                LoggingUtils.logOperation("LOCAL_SAVE", String.valueOf(update.getMessage().getFrom().getId()), 
+                    String.format("本地保存消息成功，队列大小: %d", MessageContext.getQueueSize()));
+            } else {
+                LoggingUtils.logError("LOCAL_SAVE_QUEUE_FULL", 
+                    String.format("消息队列已满，消息丢弃 - 用户: %s, 内容: %s", 
+                        update.getMessage().getFrom().getId(), 
+                        update.getMessage().getText().substring(0, Math.min(50, update.getMessage().getText().length()))), null);
+            }
         } catch (Exception e) {
             LoggingUtils.logError("LOCAL_SAVE_ERROR", "本地保存消息失败", e);
         }
@@ -205,10 +281,17 @@ public class SqlService {
                             .keyboardRow(new InlineKeyboardRow(
                                     InlineKeyboardButton
                                             .builder()
+                                            .text("click the button below to learn more:")
+//                                                .callbackData(guideMessage.getGuide1())
+                                            .callbackData("click the button below to learn more:")
+                                            .build()
+                            ))
+                            .keyboardRow(new InlineKeyboardRow(
+                                    InlineKeyboardButton
+                                            .builder()
                                             .text(guideMessage.getGuide1())
                                             .callbackData(guideMessage.getGuide1())
-                                            .build()
-                                    ,
+                                            .build(),
                                     InlineKeyboardButton
                                             .builder()
                                             .text(guideMessage.getGuide2())
@@ -235,9 +318,7 @@ public class SqlService {
                     + "VALUES (?, ?, ?, ?, ?,?)";
             jdbcTemplate.update(sql, update.getCallbackQuery().getData(), update.getCallbackQuery().getMessage().getMessageId(), update.getCallbackQuery().getFrom().getUserName(), update.getCallbackQuery().getFrom().getId(), gptAnswer.getAnswer(), gptAnswer.getSessionId());
             try {
-                // 使用ApplicationContext在需要时获取MyAmazingBot的bean
-                Object bot = applicationContext.getBean("myAmazingBot");
-                bot.getClass().getMethod("replyMessage", SendMessage.class).invoke(bot, message);
+                BotReplyUtil.reply(message, update);
                 LoggingUtils.logOperation("CALLBACK_MESSAGE", String.valueOf(update.getCallbackQuery().getFrom().getId()), "处理回调查询成功");
             } catch (Exception e) {
                 LoggingUtils.logError("BOT_REPLY_ERROR", "机器人回复消息失败", e);
@@ -284,23 +365,9 @@ public class SqlService {
                                                 .text(guideMessage.getGuide2())
                                                 .callbackData(guideMessage.getGuide2())
                                                 .build()
-//                                ))
-//                                .keyboardRow(new InlineKeyboardRow(
-//                                        InlineKeyboardButton
-//                                                .builder()
-//                                                .text(guideMessage.getGuide2())
-//                                                .callbackData(guideMessage.getGuide2())
-//                                                .build()
-//                                ))
-//                                .keyboardRow(new InlineKeyboardRow(
-//                                        InlineKeyboardButton
-//                                                .builder()
-//                                                .text(guideMessage.getGuide3())
-//                                                .callbackData(guideMessage.getGuide3())
-//                                                .build()
-//                                )
-                                )                               )
-                                .build())
+                                )                          
+                            )
+                            .build())
                         .build();
                 String sql = "INSERT INTO "+ DataContext.resTableName +" (original_question, message_id, user_name, user_id, gpt_res,session_id) "
                         + "VALUES (?, ?, ?, ?, ?,?)";
@@ -308,9 +375,7 @@ public class SqlService {
                 LoggingUtils.logOperation("DB_OPERATION", user, "保存AI回复到数据库");
                 
                 try {
-                    // 使用ApplicationContext在需要时获取MyAmazingBot的bean
-                    Object bot = applicationContext.getBean("myAmazingBot");
-                    bot.getClass().getMethod("replyMessage", SendMessage.class).invoke(bot, message);
+                    BotReplyUtil.reply(message, textMessageEntity.getUpdate());
                     LoggingUtils.logOperation("SEND_REPLY", user, "成功发送AI回复消息");
                 } catch (Exception e) {
                     LoggingUtils.logError("BOT_REPLY_ERROR", "机器人回复消息失败", e);
@@ -346,9 +411,7 @@ public class SqlService {
             LoggingUtils.logOperation("DB_OPERATION", user, "保存直接回复到数据库");
             
             try {
-                // 使用ApplicationContext在需要时获取MyAmazingBot的bean
-                Object bot = applicationContext.getBean("myAmazingBot");
-                bot.getClass().getMethod("replyMessage", SendMessage.class).invoke(bot, message);
+                BotReplyUtil.reply(message, textMessageEntity.getUpdate());
                 LoggingUtils.logOperation("SEND_REPLY", user, "成功发送直接回复消息");
             } catch (Exception e) {
                 LoggingUtils.logError("BOT_REPLY_ERROR", "机器人直接回复消息失败", e);
@@ -380,9 +443,7 @@ public class SqlService {
                 LoggingUtils.logOperation("DB_OPERATION", user, "保存自动回复到数据库");
                 
                 try {
-                    // 使用ApplicationContext在需要时获取MyAmazingBot的bean
-                    Object bot = applicationContext.getBean("myAmazingBot");
-                    bot.getClass().getMethod("replyMessage", SendMessage.class).invoke(bot, message);
+                    BotReplyUtil.reply(message, update);
                     LoggingUtils.logOperation("SEND_REPLY", user, "成功发送自动回复消息");
                 } catch (Exception e) {
                     LoggingUtils.logError("BOT_REPLY_ERROR", "机器人自动回复消息失败", e);
@@ -412,9 +473,7 @@ public class SqlService {
                     .text(Answer)
                     .build();
             try {
-                // 使用ApplicationContext在需要时获取MyAmazingBot的bean
-                Object bot = applicationContext.getBean("myAmazingBot");
-                bot.getClass().getMethod("replyMessage", SendMessage.class).invoke(bot, message);
+                BotReplyUtil.reply(message, update);
                 LoggingUtils.logOperation("REFUSE_MESSAGE", userId, "已发送拒绝消息");
             } catch (Exception e) {
                 LoggingUtils.logError("BOT_REPLY_ERROR", "发送拒绝消息失败", e);
@@ -446,7 +505,7 @@ public class SqlService {
                 
                 // 解析失败时，创建默认的GuideMessage对象
                 return GuideMessage.builder()
-                        .reply("Failed to parse response: " + e.getMessage())
+                        .reply("Failed to parse response: " + jsonResponse)
                         .guide1("Try rephrasing your question")
                         .guide2("Ask a more specific question")
                         .guide3("Provide more context")

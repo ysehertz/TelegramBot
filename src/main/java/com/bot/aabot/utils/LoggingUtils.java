@@ -116,7 +116,7 @@ public class LoggingUtils {
      */
     public static void logPerformance(String operation, long startTime) {
         long duration = System.currentTimeMillis() - startTime;
-        if (duration > 1000) { // 只记录超过1秒的操作
+        if (duration > 5000) { // 只记录超过5秒的操作
             log.warn("[{}] 操作耗时: {}ms", operation, duration);
             
             // 写入性能日志文件

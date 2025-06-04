@@ -4,6 +4,8 @@ import lombok.Data;
 
 import java.util.Date;
 
+import com.bot.aabot.entity.EventRecord;
+
 /**
  * ClassName: DataContext
  * Package: com.bot.aabot.context
@@ -17,4 +19,5 @@ import java.util.Date;
 public class DataContext {
     public static String tableName ;
     public static String resTableName;
+     public static EventRecord c;
 }

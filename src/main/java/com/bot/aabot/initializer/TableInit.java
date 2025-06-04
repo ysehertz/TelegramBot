@@ -56,5 +56,16 @@ public class TableInit {
                 "    res_time TEXT DEFAULT (strftime('%Y-%m-%d %H:%M:%S','now','localtime'))" +
                 ");";
         sqLiteUtil.createTable(sql);
+
+        // 创建用户首次加入时间表
+        sql = "CREATE TABLE IF NOT EXISTS user_join_time (" +
+                "    id INTEGER PRIMARY KEY AUTOINCREMENT," +
+                "    user_id TEXT NOT NULL," +
+                "    group_id TEXT NOT NULL, " +
+                "    chat_id TEXT NOT NULL," +
+                "    join_time TEXT NOT NULL DEFAULT (strftime('%Y-%m-%d %H:%M:%S','now','localtime')), " +
+                "    UNIQUE(user_id, group_id)" +
+                ");";
+        sqLiteUtil.createTable(sql);
     }
 }

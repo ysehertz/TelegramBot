@@ -1,0 +1,59 @@
+# 积分系统配置文件
+# 积分规则配置
+
+# 普通积分配置
+points:
+  # 默认获得的普通积分
+  default: 1
+  # 特殊积分
+  special: 0
+  # 签到积分奖励
+  check_in: 5
+  # 互动积分奖励（被回复、被表情回复）
+  interaction: 2
+
+# 冷却时间配置（单位：毫秒）
+cooldown:
+  # 默认冷却时间（半分钟）
+  default: 30000
+  # 不同消息类型的冷却时间
+  message_types:
+    # 文本消息冷却时间（半分钟）
+    text_message: 30000
+    # 图片消息冷却时间（半分钟）
+    photo_message: 30000
+    # 视频消息冷却时间（半分钟）
+    video_message: 30000
+    # 文档消息冷却时间（半分钟）
+    document_message: 30000
+    # 音频消息冷却时间（半分钟）
+    audio_message: 30000
+    # 贴纸消息冷却时间（半分钟）
+    sticker_message: 30000
+
+# 积分奖励条件
+# 长文本奖励条件（超过多少字符获得特殊积分）
+long_text_threshold: 200
+# 长文本特殊积分奖励
+long_text_special_points: 1
+
+# 文档特殊积分奖励
+document_special_points: 2
+
+# 签到功能配置
+check_in:
+  # 签到触发词（可以有多个，用逗号分隔，都是精确匹配）
+  keywords: "签到,打卡,check in"
+  # 签到成功提示信息（可使用变量：{user_name}, {date}, {points}）
+  success_message: "用户 {user_name} 在 {date} 成功签到。"
+  # 重复签到提示信息（可使用变量：{user_name}, {date}）
+  duplicate_message: "用户 {user_name} 今天已经签到过了哦~"
+
+# 互动功能配置
+interaction:
+  # 每条消息最多获得的互动积分次数
+  max_interactions_per_message: 5
+  # 被回复获得积分的提示（设为空字符串则不提示）
+  reply_message: ""
+  # 被表情回复获得积分的提示（设为空字符串则不提示）
+  reaction_message: "" 

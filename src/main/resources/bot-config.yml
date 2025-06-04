@@ -16,9 +16,9 @@ bot:
     chunk-overlap: 150 # 默认文本块重叠大小（字符数）
     
     # 向量检索相关配置
-    top-k: 6 # 相似度检索结果数量
+    top-k: 4 # 相似度检索结果数量
     similarity-threshold: 0.8 # 相似度阈值
-#    embedding-model: "text-embedding-3-small" # OpenAI嵌入模型名称
+#    embedding-model: "text-embetext-embedding-ada-002dding-3-small" # OpenAI嵌入模型名称
     embedding-model: "text-embedding-ada-002" # OpenAI嵌入模型名称
 
     vector-size: 1536 # 向量维度（text-embedding-3-small模型为1536维）

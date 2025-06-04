@@ -124,7 +124,8 @@ public class QdrantClientService {
                 log.warn("Qdrant搜索结果为空");
                 return Collections.emptyList();
             }
-            System.out.println("searchResults = " + searchResults);
+            // System.out.println("searchResults = " + searchResults);
+            
             // 4. 将搜索结果转换为TextChunk对象
             List<TextChunk> chunks = new ArrayList<>();
             for (ScoredPoint point : searchResults) {

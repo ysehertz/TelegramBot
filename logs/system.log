@@ -1,0 +1,96 @@
+2025-05-13 15:25:15.863 [main] INFO  com.bot.aabot.AaBotApplication - Starting AaBotApplication using Java 17.0.12 with PID 26136 (D:\Java\code\bot\aaBot\target\classes started by Fuchen in D:\Java\code\bot\aaBot)
+2025-05-13 15:25:15.867 [main] INFO  com.bot.aabot.AaBotApplication - No active profile set, falling back to 1 default profile: "default"
+2025-05-13 15:25:17.794 [main] INFO  o.s.b.w.e.tomcat.TomcatWebServer - Tomcat initialized with port 8080 (http)
+2025-05-13 15:25:17.808 [main] INFO  o.a.coyote.http11.Http11NioProtocol - Initializing ProtocolHandler ["http-nio-8080"]
+2025-05-13 15:25:17.810 [main] INFO  o.a.catalina.core.StandardService - Starting service [Tomcat]
+2025-05-13 15:25:17.811 [main] INFO  o.a.catalina.core.StandardEngine - Starting Servlet engine: [Apache Tomcat/10.1.36]
+2025-05-13 15:25:17.891 [main] INFO  o.a.c.c.C.[Tomcat].[localhost].[/] - Initializing Spring embedded WebApplicationContext
+2025-05-13 15:25:17.892 [main] INFO  o.s.b.w.s.c.ServletWebServerApplicationContext - Root WebApplicationContext: initialization completed in 1642 ms
+2025-05-13 15:25:18.069 [main] INFO  com.bot.aabot.utils.LoggingUtils - 系统状态: 日志目录已存在: D:\logs
+[2025-05-13 15:25:18.075] 系统状态: 日志目录已存在: D:\logs
+2025-05-13 15:25:18.086 [main] INFO  com.bot.aabot.utils.LoggingUtils - 系统状态: 磁盘空间信息 - 总空间: 200.00 GB, 已用空间: 60.71 GB (30.35%), 可用空间: 139.29 GB
+[2025-05-13 15:25:18.086] 系统状态: 磁盘空间信息 - 总空间: 200.00 GB, 已用空间: 60.71 GB (30.35%), 可用空间: 139.29 GB
+2025-05-13 15:25:18.104 [main] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Starting...
+2025-05-13 15:25:18.293 [main] INFO  com.zaxxer.hikari.pool.HikariPool - HikariPool-1 - Added connection org.sqlite.jdbc4.JDBC4Connection@7c0df4ab
+2025-05-13 15:25:18.297 [main] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Start completed.
+2025-05-13 15:25:19.165 [main] INFO  c.b.a.service.QdrantClientService - Qdrant客户端已初始化，连接到: https://69ce39b0-957e-4ad5-a0c1-54fa15119fc1.europe-west3-0.gcp.cloud.qdrant.io
+2025-05-13 15:25:19.176 [main] INFO  com.bot.aabot.utils.LoggingUtils - [CHECK_IN_KEYWORDS] 用户[SYSTEM] - 签到关键词已加载: [打卡, check in, 签到]
+2025-05-13 15:25:19.177 [main] INFO  com.bot.aabot.utils.LoggingUtils - [SCORE_CONFIG] 用户[SYSTEM] - 积分系统配置已加载
+2025-05-13 15:25:19.234 [main] INFO  o.t.t.a.api.objects.Ability - No post action was detected for method with name [commands]
+2025-05-13 15:25:19.236 [main] INFO  o.t.t.a.api.objects.Ability - No post action was detected for method with name [ban]
+2025-05-13 15:25:19.236 [main] INFO  o.t.t.a.api.objects.Ability - No post action was detected for method with name [claim]
+2025-05-13 15:25:19.237 [main] INFO  o.t.t.a.api.objects.Ability - No post action was detected for method with name [backup]
+2025-05-13 15:25:19.237 [main] INFO  o.t.t.a.api.objects.Ability - No post action was detected for method with name [unban]
+2025-05-13 15:25:19.238 [main] INFO  o.t.t.a.api.objects.Ability - No post action was detected for method with name [report]
+2025-05-13 15:25:19.238 [main] INFO  o.t.t.a.api.objects.Ability - No post action was detected for method with name [stats]
+2025-05-13 15:25:19.239 [main] INFO  o.t.t.a.api.objects.Ability - No post action was detected for method with name [demote]
+2025-05-13 15:25:19.239 [main] INFO  o.t.t.a.api.objects.Ability - No post action was detected for method with name [promote]
+2025-05-13 15:25:19.248 [main] INFO  o.t.t.a.api.objects.Ability - No post action was detected for method with name [recover]
+2025-05-13 15:25:19.248 [main] INFO  o.t.t.a.api.objects.Ability - No post action was detected for method with name [globalach]
+2025-05-13 15:25:19.249 [main] INFO  o.t.t.a.api.objects.Ability - No post action was detected for method with name [help]
+2025-05-13 15:25:19.249 [main] INFO  o.t.t.a.api.objects.Ability - No post action was detected for method with name [start]
+2025-05-13 15:25:19.251 [main] INFO  o.t.t.a.api.objects.Ability - No post action was detected for method with name [hello]
+2025-05-13 15:25:19.251 [main] INFO  o.t.t.a.api.objects.Ability - No post action was detected for method with name [updateconfig]
+2025-05-13 15:25:19.251 [main] INFO  o.t.t.a.api.objects.Ability - No post action was detected for method with name [showconfig]
+2025-05-13 15:25:19.252 [main] INFO  o.t.t.a.api.objects.Ability - No post action was detected for method with name [clearc]
+2025-05-13 15:25:20.635 [main] INFO  o.t.t.longpolling.BotSession - Result when calling deleteWebhook: true
+2025-05-13 15:25:21.321 [main] INFO  o.a.coyote.http11.Http11NioProtocol - Starting ProtocolHandler ["http-nio-8080"]
+2025-05-13 15:25:21.338 [main] INFO  o.s.b.w.e.tomcat.TomcatWebServer - Tomcat started on port 8080 (http) with context path '/'
+2025-05-13 15:25:21.354 [main] INFO  com.bot.aabot.AaBotApplication - Started AaBotApplication in 6.153 seconds (process running for 6.583)
+2025-05-13 15:25:56.401 [pool-2-thread-1] INFO  com.bot.aabot.utils.LoggingUtils - [PROCESS_CHECK_IN] 用户[7835524669] - 开始处理用户签到: check in
+2025-05-13 15:25:57.817 [pool-2-thread-1] INFO  com.bot.aabot.utils.LoggingUtils - [REPLY_MESSAGE] 用户[-1002563126840] - 回复消息成功
+2025-05-13 15:25:57.818 [pool-2-thread-1] WARN  com.bot.aabot.utils.LoggingUtils - [replyMessage] 操作耗时: 1405ms
+2025-05-13 15:25:57.819 [pool-2-thread-1] INFO  com.bot.aabot.utils.LoggingUtils - [BOT_REPLY] 用户[7835524669] - 发送消息成功
+2025-05-13 15:25:57.821 [pool-2-thread-1] INFO  com.bot.aabot.utils.LoggingUtils - [CHECK_IN_DUPLICATE] 用户[7835524669] - 用户今日已签到: 用户 YiFuchen 今天已经签到过了哦~
+2025-05-13 15:25:58.793 [pool-2-thread-1] INFO  com.bot.aabot.utils.LoggingUtils - [LOCAL_SAVE] 用户[7835524669] - 本地保存消息成功
+2025-05-13 15:25:58.803 [pool-2-thread-1] INFO  com.bot.aabot.utils.LoggingUtils - [SAVE_MESSAGE] 用户[7835524669] - 保存消息成功
+2025-05-13 15:25:58.906 [pool-2-thread-1] WARN  com.bot.aabot.utils.LoggingUtils - [consume] 操作耗时: 2504ms
+2025-05-13 15:29:28.663 [SpringApplicationShutdownHook] INFO  o.s.b.w.e.tomcat.GracefulShutdown - Commencing graceful shutdown. Waiting for active requests to complete
+2025-05-13 15:29:28.807 [tomcat-shutdown] INFO  o.s.b.w.e.tomcat.GracefulShutdown - Graceful shutdown complete
+2025-05-13 15:29:28.813 [SpringApplicationShutdownHook] INFO  c.b.a.service.QdrantClientService - Qdrant客户端已关闭
+2025-05-13 15:29:28.814 [SpringApplicationShutdownHook] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Shutdown initiated...
+2025-05-13 15:29:28.815 [SpringApplicationShutdownHook] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Shutdown completed.
+2025-05-13 15:29:55.216 [main] INFO  com.bot.aabot.AaBotApplication - Starting AaBotApplication using Java 17.0.12 with PID 32364 (D:\Java\code\bot\aaBot\target\classes started by Fuchen in D:\Java\code\bot\aaBot)
+2025-05-13 15:29:55.220 [main] INFO  com.bot.aabot.AaBotApplication - No active profile set, falling back to 1 default profile: "default"
+2025-05-13 15:29:57.141 [main] INFO  o.s.b.w.e.tomcat.TomcatWebServer - Tomcat initialized with port 8080 (http)
+2025-05-13 15:29:57.155 [main] INFO  o.a.coyote.http11.Http11NioProtocol - Initializing ProtocolHandler ["http-nio-8080"]
+2025-05-13 15:29:57.157 [main] INFO  o.a.catalina.core.StandardService - Starting service [Tomcat]
+2025-05-13 15:29:57.158 [main] INFO  o.a.catalina.core.StandardEngine - Starting Servlet engine: [Apache Tomcat/10.1.36]
+2025-05-13 15:29:57.242 [main] INFO  o.a.c.c.C.[Tomcat].[localhost].[/] - Initializing Spring embedded WebApplicationContext
+2025-05-13 15:29:57.243 [main] INFO  o.s.b.w.s.c.ServletWebServerApplicationContext - Root WebApplicationContext: initialization completed in 1668 ms
+2025-05-13 15:29:57.424 [main] INFO  com.bot.aabot.utils.LoggingUtils - 系统状态: 日志目录已存在: D:\logs
+[2025-05-13 15:29:57.431] 系统状态: 日志目录已存在: D:\logs
+2025-05-13 15:29:57.440 [main] INFO  com.bot.aabot.utils.LoggingUtils - 系统状态: 磁盘空间信息 - 总空间: 200.00 GB, 已用空间: 60.71 GB (30.35%), 可用空间: 139.29 GB
+[2025-05-13 15:29:57.440] 系统状态: 磁盘空间信息 - 总空间: 200.00 GB, 已用空间: 60.71 GB (30.35%), 可用空间: 139.29 GB
+2025-05-13 15:29:57.457 [main] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Starting...
+2025-05-13 15:29:57.616 [main] INFO  com.zaxxer.hikari.pool.HikariPool - HikariPool-1 - Added connection org.sqlite.jdbc4.JDBC4Connection@7c0df4ab
+2025-05-13 15:29:57.621 [main] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Start completed.
+2025-05-13 15:29:58.436 [main] INFO  c.b.a.service.QdrantClientService - Qdrant客户端已初始化，连接到: https://69ce39b0-957e-4ad5-a0c1-54fa15119fc1.europe-west3-0.gcp.cloud.qdrant.io
+2025-05-13 15:29:58.446 [main] INFO  com.bot.aabot.utils.LoggingUtils - [CHECK_IN_KEYWORDS] 用户[SYSTEM] - 签到关键词已加载: [打卡, check in, 签到]
+2025-05-13 15:29:58.447 [main] INFO  com.bot.aabot.utils.LoggingUtils - [SCORE_CONFIG] 用户[SYSTEM] - 积分系统配置已加载
+2025-05-13 15:29:58.504 [main] INFO  o.t.t.a.api.objects.Ability - No post action was detected for method with name [commands]
+2025-05-13 15:29:58.505 [main] INFO  o.t.t.a.api.objects.Ability - No post action was detected for method with name [backup]
+2025-05-13 15:29:58.506 [main] INFO  o.t.t.a.api.objects.Ability - No post action was detected for method with name [ban]
+2025-05-13 15:29:58.506 [main] INFO  o.t.t.a.api.objects.Ability - No post action was detected for method with name [unban]
+2025-05-13 15:29:58.507 [main] INFO  o.t.t.a.api.objects.Ability - No post action was detected for method with name [report]
+2025-05-13 15:29:58.507 [main] INFO  o.t.t.a.api.objects.Ability - No post action was detected for method with name [demote]
+2025-05-13 15:29:58.507 [main] INFO  o.t.t.a.api.objects.Ability - No post action was detected for method with name [stats]
+2025-05-13 15:29:58.508 [main] INFO  o.t.t.a.api.objects.Ability - No post action was detected for method with name [claim]
+2025-05-13 15:29:58.515 [main] INFO  o.t.t.a.api.objects.Ability - No post action was detected for method with name [recover]
+2025-05-13 15:29:58.515 [main] INFO  o.t.t.a.api.objects.Ability - No post action was detected for method with name [promote]
+2025-05-13 15:29:58.516 [main] INFO  o.t.t.a.api.objects.Ability - No post action was detected for method with name [start]
+2025-05-13 15:29:58.517 [main] INFO  o.t.t.a.api.objects.Ability - No post action was detected for method with name [help]
+2025-05-13 15:29:58.517 [main] INFO  o.t.t.a.api.objects.Ability - No post action was detected for method with name [hello]
+2025-05-13 15:29:58.517 [main] INFO  o.t.t.a.api.objects.Ability - No post action was detected for method with name [updateconfig]
+2025-05-13 15:29:58.518 [main] INFO  o.t.t.a.api.objects.Ability - No post action was detected for method with name [globalach]
+2025-05-13 15:29:58.519 [main] INFO  o.t.t.a.api.objects.Ability - No post action was detected for method with name [showconfig]
+2025-05-13 15:29:58.519 [main] INFO  o.t.t.a.api.objects.Ability - No post action was detected for method with name [clearc]
+2025-05-13 15:29:59.847 [main] INFO  o.t.t.longpolling.BotSession - Result when calling deleteWebhook: true
+2025-05-13 15:30:00.574 [main] INFO  o.a.coyote.http11.Http11NioProtocol - Starting ProtocolHandler ["http-nio-8080"]
+2025-05-13 15:30:00.601 [main] INFO  o.s.b.w.e.tomcat.TomcatWebServer - Tomcat started on port 8080 (http) with context path '/'
+2025-05-13 15:30:00.620 [main] INFO  com.bot.aabot.AaBotApplication - Started AaBotApplication in 6.04 seconds (process running for 6.416)
+2025-05-13 15:30:09.696 [SpringApplicationShutdownHook] INFO  o.s.b.w.e.tomcat.GracefulShutdown - Commencing graceful shutdown. Waiting for active requests to complete
+2025-05-13 15:30:09.851 [tomcat-shutdown] INFO  o.s.b.w.e.tomcat.GracefulShutdown - Graceful shutdown complete
+2025-05-13 15:30:09.856 [SpringApplicationShutdownHook] INFO  c.b.a.service.QdrantClientService - Qdrant客户端已关闭
+2025-05-13 15:30:09.857 [SpringApplicationShutdownHook] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Shutdown initiated...
+2025-05-13 15:30:09.859 [SpringApplicationShutdownHook] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Shutdown completed.

@@ -9,6 +9,7 @@ import org.telegram.telegrambots.longpolling.TelegramBotsLongPollingApplication;
 import org.telegram.telegrambots.longpolling.util.DefaultGetUpdatesGenerator;
 import org.telegram.telegrambots.meta.TelegramUrl;
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
+import org.springframework.scheduling.annotation.EnableAsync;
 
 import java.util.List;
 
@@ -31,8 +32,9 @@ public class TelegramBotConfig {
         MyAmazingBot myAmazingBot = applicationContext.getBean(MyAmazingBot.class);
         myAmazingBot.onRegister();
 
-        DefaultGetUpdatesGenerator defaultGetUpdatesGenerator = new DefaultGetUpdatesGenerator(List.of("message_reaction","message"));
+        DefaultGetUpdatesGenerator defaultGetUpdatesGenerator = new DefaultGetUpdatesGenerator(List.of("message_reaction","callback_query","message"));
 
+//       DefaultGetUpdatesGenerator defaultGetUpdatesGenerator = new DefaultGetUpdatesGenerator();
         application.registerBot(BOT_TOKEN,() -> TelegramUrl.DEFAULT_URL, defaultGetUpdatesGenerator,myAmazingBot);
         
         return application;

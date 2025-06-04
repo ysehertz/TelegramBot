@@ -1,14 +1,20 @@
 package com.bot.aabot;
 
+import com.bot.aabot.context.ConstructionEventContext;
 import com.bot.aabot.entity.TextMessageEntity;
 import com.bot.aabot.initializer.BotContext;
 import com.bot.aabot.service.GPTService;
+import com.bot.aabot.service.ScoreService;
 import com.bot.aabot.service.SqlService;
 import com.bot.aabot.utils.LoggingUtils;
 import com.fasterxml.jackson.databind.introspect.AnnotatedClass;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.annotation.Bean;
+import org.springframework.scheduling.annotation.Async;
+import org.springframework.scheduling.annotation.EnableAsync;
+import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 import org.springframework.stereotype.Component;
 import org.telegram.telegrambots.abilitybots.api.bot.AbilityBot;
 import org.telegram.telegrambots.abilitybots.api.db.DBContext;
@@ -20,6 +26,7 @@ import org.telegram.telegrambots.client.okhttp.OkHttpTelegramClient;
 import org.telegram.telegrambots.longpolling.interfaces.LongPollingUpdateConsumer;
 import org.telegram.telegrambots.longpolling.starter.SpringLongPollingBot;
 import org.telegram.telegrambots.longpolling.util.LongPollingSingleThreadUpdateConsumer;
+import org.telegram.telegrambots.meta.api.methods.AnswerCallbackQuery;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
 import org.telegram.telegrambots.meta.api.objects.PhotoSize;
 import org.telegram.telegrambots.meta.api.objects.Update;
@@ -30,6 +37,9 @@ import org.telegram.telegrambots.meta.generics.TelegramClient;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.bot.aabot.service.ConfigManagementService;
 import org.telegram.telegrambots.abilitybots.api.objects.MessageContext;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executor;
+import java.util.concurrent.TimeUnit;
 
 import java.util.*;
 
@@ -44,40 +54,201 @@ public class MyAmazingBot extends AbilityBot{
     @Autowired
     private SqlService sqlService;
     @Autowired
+    private ScoreService scoreService;
+    @Autowired
     private ConfigManagementService configManagementService;
     @Autowired
     private ObjectMapper objectMapper;
+    @Autowired
+    private org.springframework.jdbc.core.JdbcTemplate jdbcTemplate;
 
+    // 并发处理配置
+    
+    @Value("${bot.concurrency.message-timeout:30000}")
+    private long messageTimeout;
 
     protected MyAmazingBot() {
         super(new OkHttpTelegramClient("7647087531:AAEgk9kpws5RXS0pQg_iauLR1TT75JVjHXU"), "Tgbot");
     }
+
+
 
     @Override
     public long creatorId() {
         return BotContext.CreateId;
     }
 
-
     @Override
     public void consume(Update update) {
         long startTime = System.currentTimeMillis();
+        String userId = update.hasMessage() ? String.valueOf(update.getMessage().getFrom().getId()) : "unknown";
+
         try {
-            if(update.hasMessage()){
-                sqlService.saveMessage(update);
-            }else if(update.hasEditedMessage()){
-                sqlService.editMessage(update);
-            }else if(update.hasCallbackQuery()){
-                sqlService.callbackQuery(update);
-            }else if(update.getMessageReaction() != null){
-                replyMessage(new SendMessage(String.valueOf(update.getMessageReaction().getChat().getId()), "收到表情回复"));
+            // 第一层：快速预处理和分发
+            LoggingUtils.logOperation("MESSAGE_RECEIVED", userId, "开始处理消息更新");
+            
+            // 异步处理构造事件
+            if (update.hasMessage() && ConstructionEventContext.creator_id != null && 
+                ConstructionEventContext.creator_id.equals(String.valueOf(update.getMessage().getFrom().getId())) && 
+                ConstructionEventContext.chatId != null && 
+                ConstructionEventContext.chatId.equals(String.valueOf(update.getMessage().getChatId()))) {
+                
+                processConstructionEventAsync(update);
+            }else{
+                // 第二层：异步处理核心业务逻辑
+                processMessageAsync(update);
+
+                // 第三层：异步处理各种消息类型
+                if (update.hasMessage()) {
+                    processRegularMessageAsync(update);
+                } else if (update.hasEditedMessage()) {
+                    processEditedMessageAsync(update);
+                } else if (update.hasCallbackQuery()) {
+                    processCallbackQueryAsync(update);
+                } else if (update.getMessageReaction() != null) {
+                    processMessageReactionAsync(update);
+                }
             }
-            if(update.getMessageReaction() == null)
-                super.consume(update);
             LoggingUtils.logPerformance("consume", startTime);
         } catch (Exception e) {
             LoggingUtils.logError("BOT_CONSUME_ERROR", "处理更新消息失败", e);
         }
+    }
+
+    /**
+     * 异步处理构造事件
+     */
+    @Async("botAsyncExecutor")
+    public void processConstructionEventAsync(Update update) {
+        CompletableFuture.runAsync(() -> {
+            try {
+                scoreService.addEvent(update.getMessage().getText());
+            } catch (Exception e) {
+                LoggingUtils.logError("CONSTRUCTION_EVENT_ERROR", "处理构造事件失败", e);
+            }
+        }).orTimeout(messageTimeout, TimeUnit.MILLISECONDS)
+        .exceptionally(throwable -> {
+            LoggingUtils.logError("CONSTRUCTION_EVENT_TIMEOUT", "构造事件处理超时", (Exception) throwable);
+            return null;
+        });
+    }
+
+    /**
+     * 异步处理核心消息逻辑
+     */
+    @Async("botAsyncExecutor")
+    public void processMessageAsync(Update update) {
+        String userId = update.hasMessage() ? String.valueOf(update.getMessage().getFrom().getId()) : "unknown";
+        
+        CompletableFuture.runAsync(() -> {
+            try {
+                // 积分相关逻辑
+                scoreService.processMessage(update);
+            } catch (Exception e) {
+                LoggingUtils.logError("SCORE_PROCESS_ERROR", "处理积分逻辑失败", e);
+            }
+        }).orTimeout(messageTimeout, TimeUnit.MILLISECONDS)
+        .exceptionally(throwable -> {
+            LoggingUtils.logError("MESSAGE_PROCESS_TIMEOUT", "消息处理超时", (Exception) throwable);
+            return null;
+        });
+    }
+
+    /**
+     * 异步处理普通消息
+     */
+    @Async("botAsyncExecutor")
+    public void processRegularMessageAsync(Update update) {
+        String userId = String.valueOf(update.getMessage().getFrom().getId());
+        
+        CompletableFuture.runAsync(() -> {
+            try {
+                // 消息保存
+                sqlService.saveMessage(update);
+                
+                // 处理AbilityBot的消息处理
+                super.consume(update);
+                
+                LoggingUtils.logOperation("REGULAR_MESSAGE_PROCESSED", userId, "普通消息处理完成");
+            } catch (Exception e) {
+                LoggingUtils.logError("REGULAR_MESSAGE_ERROR", "处理普通消息失败", e);
+            }
+        }).orTimeout(messageTimeout, TimeUnit.MILLISECONDS)
+        .exceptionally(throwable -> {
+            LoggingUtils.logError("REGULAR_MESSAGE_TIMEOUT", "普通消息处理超时", (Exception) throwable);
+            return null;
+        });
+    }
+
+    /**
+     * 异步处理编辑消息
+     */
+    @Async("botAsyncExecutor")
+    public void processEditedMessageAsync(Update update) {
+        String userId = String.valueOf(update.getEditedMessage().getFrom().getId());
+        
+        CompletableFuture.runAsync(() -> {
+            try {
+                sqlService.editMessage(update);
+                LoggingUtils.logOperation("EDITED_MESSAGE_PROCESSED", userId, "编辑消息处理完成");
+            } catch (Exception e) {
+                LoggingUtils.logError("EDITED_MESSAGE_ERROR", "处理编辑消息失败", e);
+            }
+        }).orTimeout(messageTimeout, TimeUnit.MILLISECONDS)
+        .exceptionally(throwable -> {
+            LoggingUtils.logError("EDITED_MESSAGE_TIMEOUT", "编辑消息处理超时", (Exception) throwable);
+            return null;
+        });
+    }
+
+    /**
+     * 异步处理回调查询
+     */
+    @Async("botAsyncExecutor")
+    public void processCallbackQueryAsync(Update update) {
+        String userId = String.valueOf(update.getCallbackQuery().getFrom().getId());
+        
+        CompletableFuture.runAsync(() -> {
+            try {
+                AnswerCallbackQuery answer = new AnswerCallbackQuery(update.getCallbackQuery().getId());
+                telegramClient.execute(answer);
+                
+                // 处理积分排名分页回调
+                String callbackData = update.getCallbackQuery().getData();
+                if (callbackData.startsWith("pointList_")) {
+                    handlePointListCallback(update);
+                }
+                
+                sqlService.callbackQuery(update);
+                LoggingUtils.logOperation("CALLBACK_QUERY_PROCESSED", userId, "回调查询处理完成");
+            } catch (Exception e) {
+                LoggingUtils.logError("CALLBACK_QUERY_ERROR", "处理回调查询失败", e);
+            }
+        }).orTimeout(messageTimeout, TimeUnit.MILLISECONDS)
+        .exceptionally(throwable -> {
+            LoggingUtils.logError("CALLBACK_QUERY_TIMEOUT", "回调查询处理超时", (Exception) throwable);
+            return null;
+        });
+    }
+
+    /**
+     * 异步处理消息反应
+     */
+    @Async("botAsyncExecutor")
+    public void processMessageReactionAsync(Update update) {
+        String userId = String.valueOf(update.getMessageReaction().getUser().getId());
+        
+        CompletableFuture.runAsync(() -> {
+            try {
+                LoggingUtils.logOperation("MESSAGE_REACTION_PROCESSED", userId, "消息反应处理完成");
+            } catch (Exception e) {
+                LoggingUtils.logError("MESSAGE_REACTION_ERROR", "处理消息反应失败", e);
+            }
+        }).orTimeout(messageTimeout, TimeUnit.MILLISECONDS)
+        .exceptionally(throwable -> {
+            LoggingUtils.logError("MESSAGE_REACTION_TIMEOUT", "消息反应处理超时", (Exception) throwable);
+            return null;
+        });
     }
 
     // 回复消息
@@ -92,23 +263,29 @@ public class MyAmazingBot extends AbilityBot{
         }
     }
 
-    public Ability sayHelloWorld() {
+    /**
+     * 添加活动
+     * @return
+     */
+    public Ability addEvent() {
         return Ability
                 .builder()
-                .name("hello")
-                .info("says hello world!")
-                .locality(ALL)
-                .privacy(PUBLIC)
-                .action(ctx -> {
+                .name("addevent")
+                .info("添加活动")
+                .locality(Locality.ALL)
+                .privacy(Privacy.ADMIN)
+                .action((ctx) -> {
                     try {
-                        silent.send("Hello world!", ctx.chatId());
-                        LoggingUtils.logOperation("SAY_HELLO", String.valueOf(ctx.chatId()), "发送Hello消息成功");
+                        scoreService.addEvent(ctx);
                     } catch (Exception e) {
-                        LoggingUtils.logError("SAY_HELLO_ERROR", "发送Hello消息失败", e);
+                        LoggingUtils.logError("ADD_EVENT_ERROR", "添加活动失败", e);
+                        silent.send("添加活动失败", ctx.chatId());
                     }
                 })
                 .build();
     }
+    
+
 
     public Ability startAbility() {
         return Ability
@@ -256,6 +433,232 @@ public class MyAmazingBot extends AbilityBot{
             }
             // 如果不是特殊类型，返回字符串
             return value;
+        }
+    }
+
+    public Ability initChat(){
+        return Ability
+                .builder()
+                .name("init")
+                .locality(ALL)
+                .privacy(Privacy.ADMIN)
+                .action((ctx)->{
+                    try {
+                        scoreService.initChat(ctx);
+                    } catch (Exception e) {
+                        LoggingUtils.logError("INIT_CHAT_ERROR", "初始化会话失败", e);
+                        silent.send("初始化会话失败", ctx.chatId());
+                    }
+                })
+                .build();
+    }
+
+    public Ability initAdminGroup(){
+        return Ability
+                .builder()
+                .name("initadmin")
+                .locality(ALL)
+                .privacy(Privacy.ADMIN)
+                .action((ctx)->{
+                    try {
+                        scoreService.initChat(ctx);
+                        scoreService.initAdminGroup(ctx);
+                    } catch (Exception e) {
+                        LoggingUtils.logError("INIT_ADMIN_GROUP_ERROR", "初始化管理群组失败", e);
+                        silent.send("初始化管理群组失败", ctx.chatId());
+                    }
+                })
+                .build();
+    }
+
+    /**
+     * 添加特殊积分给用户
+     * @return
+     */
+    public Ability addPoints() {
+        return Ability
+                .builder()
+                .name("addpoints")
+                .info("为用户添加特殊积分")
+                .locality(Locality.ALL)
+                .privacy(Privacy.ADMIN)
+                .action((ctx) -> {
+                    try {
+                        String[] args = ctx.arguments();
+                        if (args.length < 2) {
+                            silent.send("用法: /addpoints <数字> @用户名", ctx.chatId());
+                            return;
+                        }
+                        
+                        // 解析积分数量
+                        int points;
+                        try {
+                            points = Integer.parseInt(args[0]);
+                        } catch (NumberFormatException e) {
+                            silent.send("错误：积分数量必须是数字", ctx.chatId());
+                            return;
+                        }
+                        
+                        // 获取用户名
+                        String userName = args[1];
+                        
+                        // 调用服务方法添加积分
+                        String result = scoreService.addPointsToUser(
+                            String.valueOf(ctx.chatId()), 
+                            userName, 
+                            points
+                        );
+                        
+                        silent.send(result, ctx.chatId());
+                        
+                    } catch (Exception e) {
+                        LoggingUtils.logError("ADD_POINTS_ERROR", "添加积分失败", e);
+                        silent.send("添加积分失败", ctx.chatId());
+                    }
+                })
+                .build();
+    }
+
+
+    /**
+     * 普通用户查看自己的积分
+     */
+    public Ability viewPoints() {
+        return Ability
+                .builder()
+                .name("viewpoint")
+                .info("查看自己的积分")
+                .locality(Locality.ALL)
+                .privacy(Privacy.PUBLIC)
+                .action((ctx)->{
+                    try {
+                        scoreService.viewPoints(ctx);
+                    } catch (Exception e) {
+                        LoggingUtils.logError("VIEW_POINTS_ERROR", "查看积分失败", e);
+                        silent.send("查看积分失败", ctx.chatId());
+                    }
+                    
+                })
+                .build();
+    }
+
+    /**
+     * 管理员查看活动积分排名
+     */
+    public Ability pointList() {
+        return Ability
+                .builder()
+                .name("pointlist")
+                .info("查看活动积分排名")
+                .locality(Locality.ALL)
+                .privacy(Privacy.ADMIN)
+                .action((ctx) -> {
+                    try {
+                        String[] args = ctx.arguments();
+                        if (args.length == 0) {
+                            // 显示活动列表
+                            String eventListMessage = scoreService.getEventListMessage(String.valueOf(ctx.chatId()));
+                            silent.send(eventListMessage, ctx.chatId());
+                        } else {
+                            // 显示指定活动的积分排名
+                            try {
+                                int eventId = Integer.parseInt(args[0]);
+                                Map<String, Object> result = scoreService.getEventPointsRankingMessage(eventId, 0, String.valueOf(ctx.chatId()));
+                                
+                                String text = (String) result.get("text");
+                                Object keyboard = result.get("keyboard");
+                                
+                                if (keyboard != null) {
+                                    // 发送带键盘的消息
+                                    sendMessageWithKeyboard(String.valueOf(ctx.chatId()), text, keyboard);
+                                } else {
+                                    // 发送普通消息
+                                    silent.send(text, ctx.chatId());
+                                }
+                            } catch (NumberFormatException e) {
+                                silent.send("活动ID必须是数字", ctx.chatId());
+                            }
+                        }
+                    } catch (Exception e) {
+                        LoggingUtils.logError("POINT_LIST_ERROR", "查看积分排名失败", e);
+                        silent.send("查看积分排名失败", ctx.chatId());
+                    }
+                })
+                .build();
+    }
+
+    /**
+     * 处理积分排名分页回调
+     */
+    private void handlePointListCallback(Update update) {
+        try {
+            String callbackData = update.getCallbackQuery().getData();
+            String[] parts = callbackData.split("_");
+            
+            if (parts.length >= 3) {
+                int eventId = Integer.parseInt(parts[1]);
+                int page = Integer.parseInt(parts[2]);
+                
+                String chatId = String.valueOf(update.getCallbackQuery().getMessage().getChatId());
+                Map<String, Object> result = scoreService.getEventPointsRankingMessage(eventId, page, chatId);
+                
+                String text = (String) result.get("text");
+                Object keyboard = result.get("keyboard");
+                
+                // 编辑原消息
+                editMessageWithKeyboard(update.getCallbackQuery().getMessage().getMessageId(), chatId, text, keyboard);
+            }
+        } catch (Exception e) {
+            LoggingUtils.logError("HANDLE_POINT_LIST_CALLBACK_ERROR", "处理积分排名回调失败", e);
+        }
+    }
+
+    /**
+     * 发送带内联键盘的消息
+     */
+    private void sendMessageWithKeyboard(String chatId, String text, Object keyboard) {
+        try {
+            SendMessage message = SendMessage.builder()
+                    .chatId(chatId)
+                    .text(text)
+                    .build();
+            
+            if (keyboard != null) {
+                message.getClass().getMethod("setReplyMarkup", 
+                    Class.forName("org.telegram.telegrambots.meta.api.objects.replykeyboard.ReplyKeyboard"))
+                    .invoke(message, keyboard);
+            }
+            
+            telegramClient.execute(message);
+        } catch (Exception e) {
+            LoggingUtils.logError("SEND_MESSAGE_WITH_KEYBOARD_ERROR", "发送带键盘消息失败", e);
+        }
+    }
+
+    /**
+     * 编辑消息和键盘
+     */
+    private void editMessageWithKeyboard(Integer messageId, String chatId, String text, Object keyboard) {
+        try {
+            Class<?> editMessageTextClass = Class.forName("org.telegram.telegrambots.meta.api.methods.updatingmessages.EditMessageText");
+            Object editMessage = editMessageTextClass.getDeclaredConstructor().newInstance();
+            
+            editMessageTextClass.getMethod("setChatId", String.class).invoke(editMessage, chatId);
+            editMessageTextClass.getMethod("setMessageId", Integer.class).invoke(editMessage, messageId);
+            editMessageTextClass.getMethod("setText", String.class).invoke(editMessage, text);
+            
+            if (keyboard != null) {
+                editMessageTextClass.getMethod("setReplyMarkup", 
+                    Class.forName("org.telegram.telegrambots.meta.api.objects.replykeyboard.InlineKeyboardMarkup"))
+                    .invoke(editMessage, keyboard);
+            }
+            
+            // 使用反射调用execute方法
+            telegramClient.getClass().getMethod("execute", 
+                Class.forName("org.telegram.telegrambots.meta.api.methods.BotApiMethod"))
+                .invoke(telegramClient, editMessage);
+        } catch (Exception e) {
+            LoggingUtils.logError("EDIT_MESSAGE_WITH_KEYBOARD_ERROR", "编辑消息键盘失败", e);
         }
     }
 }
