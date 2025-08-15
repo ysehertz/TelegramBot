@@ -45,6 +45,9 @@ import java.util.*;
 
 import static org.telegram.telegrambots.abilitybots.api.objects.Locality.ALL;
 import static org.telegram.telegrambots.abilitybots.api.objects.Privacy.PUBLIC;
+import org.telegram.telegrambots.meta.api.methods.updatingmessages.DeleteMessage;
+import org.telegram.telegrambots.meta.api.methods.groupadministration.BanChatMember;
+import org.telegram.telegrambots.meta.api.methods.groupadministration.RestrictChatMember;
 
 @Slf4j
 @Component
@@ -61,6 +64,8 @@ public class MyAmazingBot extends AbilityBot{
     private ObjectMapper objectMapper;
     @Autowired
     private org.springframework.jdbc.core.JdbcTemplate jdbcTemplate;
+    @Autowired
+    private com.bot.aabot.config.BotConfig botConfig;
 
     // 并发处理配置
     
@@ -84,6 +89,13 @@ public class MyAmazingBot extends AbilityBot{
         String userId = update.hasMessage() ? String.valueOf(update.getMessage().getFrom().getId()) : "unknown";
 
         try {
+            // 第零层：广告消息过滤（同步处理）
+            if (sqlService.checkAndHandleSpamMessage(update)) {
+                LoggingUtils.logSecurityEvent("SPAM_BLOCKED", userId, "广告消息已被拦截并处理");
+                LoggingUtils.logPerformance("spam_filter", startTime);
+                return; // 拦截广告消息，不继续处理
+            }
+            
             // 第一层：快速预处理和分发
             LoggingUtils.logOperation("MESSAGE_RECEIVED", userId, "开始处理消息更新");
             
@@ -92,7 +104,7 @@ public class MyAmazingBot extends AbilityBot{
                 ConstructionEventContext.creator_id.equals(String.valueOf(update.getMessage().getFrom().getId())) && 
                 ConstructionEventContext.chatId != null && 
                 ConstructionEventContext.chatId.equals(String.valueOf(update.getMessage().getChatId()))) {
-                
+//
                 processConstructionEventAsync(update);
             }else{
                 // 第二层：异步处理核心业务逻辑
@@ -217,9 +229,8 @@ public class MyAmazingBot extends AbilityBot{
                 String callbackData = update.getCallbackQuery().getData();
                 if (callbackData.startsWith("pointList_")) {
                     handlePointListCallback(update);
-                }
-                
-                sqlService.callbackQuery(update);
+                }else
+                    sqlService.callbackQuery(update);
                 LoggingUtils.logOperation("CALLBACK_QUERY_PROCESSED", userId, "回调查询处理完成");
             } catch (Exception e) {
                 LoggingUtils.logError("CALLBACK_QUERY_ERROR", "处理回调查询失败", e);
@@ -263,144 +274,180 @@ public class MyAmazingBot extends AbilityBot{
         }
     }
 
-    /**
-     * 添加活动
-     * @return
-     */
-    public Ability addEvent() {
-        return Ability
-                .builder()
-                .name("addevent")
-                .info("添加活动")
-                .locality(Locality.ALL)
-                .privacy(Privacy.ADMIN)
-                .action((ctx) -> {
-                    try {
-                        scoreService.addEvent(ctx);
-                    } catch (Exception e) {
-                        LoggingUtils.logError("ADD_EVENT_ERROR", "添加活动失败", e);
-                        silent.send("添加活动失败", ctx.chatId());
-                    }
-                })
-                .build();
-    }
-    
-
-
-    public Ability startAbility() {
-        return Ability
-                .builder()
-                .name("start")
-                .info("开始使用机器人")
-                .locality(Locality.ALL)
-                .privacy(Privacy.PUBLIC)
-                .action((ctx) -> {
-                    try {
-                        this.silent.send(String.join("\n", "欢迎使用机器人！", "我可以帮你回答各种问题。", "直接发送你的问题即可。"), ctx.chatId());
-                        LoggingUtils.logOperation("START_BOT", String.valueOf(ctx.chatId()), "用户开始使用机器人");
-                    } catch (Exception e) {
-                        LoggingUtils.logError("START_BOT_ERROR", "启动机器人失败", e);
-                    }
-                })
-                .build();
+    // 删除消息
+    public void deleteMessage(DeleteMessage deleteMessage) {
+        long startTime = System.currentTimeMillis();
+        try {
+            telegramClient.execute(deleteMessage);
+            LoggingUtils.logOperation("DELETE_MESSAGE", String.valueOf(deleteMessage.getChatId()), "删除消息成功");
+            LoggingUtils.logPerformance("deleteMessage", startTime);
+        } catch (TelegramApiException e) {
+            LoggingUtils.logError("DELETE_MESSAGE_ERROR", "删除消息失败", e);
+        }
     }
 
-    public Ability helpAbility() {
-        return Ability
-                .builder()
-                .name("help")
-                .info("显示帮助信息")
-                .locality(Locality.ALL)
-                .privacy(Privacy.PUBLIC)
-                .action((ctx) -> {
-                    try {
-                        this.silent.send(String.join("\n", 
-                                "机器人使用帮助：", 
-                                "1. 直接发送问题，我会尽力回答", 
-                                "2. 使用 /start 开始使用", 
-                                "3. 使用 /help 显示此帮助信息",
-                                "4. 使用 /clearc 清除所有用户会话记录（仅管理员可用）"), ctx.chatId());
-                        LoggingUtils.logOperation("SHOW_HELP", String.valueOf(ctx.chatId()), "显示帮助信息");
-                    } catch (Exception e) {
-                        LoggingUtils.logError("SHOW_HELP_ERROR", "显示帮助信息失败", e);
-                    }
-                })
-                .build();
+    // 封禁用户
+    public void banUser(BanChatMember banChatMember) {
+        long startTime = System.currentTimeMillis();
+        try {
+            telegramClient.execute(banChatMember);
+            LoggingUtils.logOperation("BAN_USER", String.valueOf(banChatMember.getChatId()), "封禁用户成功");
+            LoggingUtils.logPerformance("banUser", startTime);
+        } catch (TelegramApiException e) {
+            LoggingUtils.logError("BAN_USER_ERROR", "封禁用户失败", e);
+        }
     }
 
-    public Ability clearConversationsAbility() {
-        return Ability
-                .builder()
-                .name("clearc")
-                .info("清除所有用户的会话记录")
-                .locality(Locality.ALL)
-                .privacy(Privacy.CREATOR) // 只有创建者可以使用此命令
-                .action((ctx) -> {
-                    try {
-                        int count = gptService.clearAllConversations();
-                        this.silent.send(String.format("已成功清除所有用户会话记录，共 %d 个会话。", count), ctx.chatId());
-                        LoggingUtils.logOperation("CLEAR_CONVERSATIONS", String.valueOf(ctx.chatId()), "清除所有会话记录");
-                    } catch (Exception e) {
-                        LoggingUtils.logError("CLEAR_CONVERSATIONS_ERROR", "清除会话记录失败", e);
-                    }
-                })
-                .build();
+    // 限制用户权限
+    public void restrictUser(RestrictChatMember restrictChatMember) {
+        long startTime = System.currentTimeMillis();
+        try {
+            telegramClient.execute(restrictChatMember);
+            LoggingUtils.logOperation("RESTRICT_USER", String.valueOf(restrictChatMember.getChatId()), "限制用户权限成功");
+            LoggingUtils.logPerformance("restrictUser", startTime);
+        } catch (TelegramApiException e) {
+            LoggingUtils.logError("RESTRICT_USER_ERROR", "限制用户权限失败", e);
+        }
     }
 
-    public Ability showConfig() {
-        return Ability
-                .builder()
-                .name("showconfig")
-                .info("显示当前配置")
-                .locality(ALL)
-                .privacy(PUBLIC)
-                .action((MessageContext ctx) -> {
-                    try {
-                        Map<String, Object> config = configManagementService.getCurrentConfig();
-                        String configJson = objectMapper.writerWithDefaultPrettyPrinter().writeValueAsString(config);
-                        silent.send("当前配置：\n" + configJson, ctx.chatId());
-                        LoggingUtils.logOperation("SHOW_CONFIG", String.valueOf(ctx.chatId()), "显示当前配置");
-                    } catch (Exception e) {
-                        LoggingUtils.logError("SHOW_CONFIG_ERROR", "显示配置失败", e);
-                        silent.send("获取配置失败：" + e.getMessage(), ctx.chatId());
-                    }
-                })
-                .build();
-    }
+//    /**
+//     * 添加活动
+//     * @return
+//     */
+//    public Ability addEvent() {
+//        return Ability
+//                .builder()
+//                .name("addevent")
+//                .info("添加活动")
+//                .locality(Locality.ALL)
+//                .privacy(Privacy.ADMIN)
+//                .action((ctx) -> {
+//                    try {
+//                        scoreService.addEvent(ctx);
+//                    } catch (Exception e) {
+//                        LoggingUtils.logError("ADD_EVENT_ERROR", "添加活动失败", e);
+//                        silent.send("添加活动失败", ctx.chatId());
+//                    }
+//                })
+//                .build();
+//    }
+//
 
-    public Ability updateConfig() {
-        return Ability
-                .builder()
-                .name("updateconfig")
-                .info("更新配置")
-                .locality(ALL)
-                .privacy(PUBLIC)
-                .action((MessageContext ctx) -> {
-                    try {
-                        String[] args = ctx.arguments();
-                        if (args.length < 2) {
-                            silent.send("用法：/updateconfig <配置路径> <新值>\n例如：/updateconfig message.conversation_timeout 30", ctx.chatId());
-                            return;
-                        }
 
-                        String path = args[0];
-                        String value = args[1];
-                        
-                        // 将路径转换为Map结构
-                        Map<String, Object> updates = createUpdateMap(path, value);
-                        
-                        // 更新配置
-                        configManagementService.updateConfig(updates);
-                        
-                        silent.send("配置已更新", ctx.chatId());
-                        LoggingUtils.logOperation("UPDATE_CONFIG", String.valueOf(ctx.chatId()), "更新配置成功");
-                    } catch (Exception e) {
-                        LoggingUtils.logError("UPDATE_CONFIG_ERROR", "更新配置失败", e);
-                        silent.send("更新配置失败", ctx.chatId());
-                    }
-                })
-                .build();
-    }
+//    public Ability startAbility() {
+//        return Ability
+//                .builder()
+//                .name("start")
+//                .info("开始使用机器人")
+//                .locality(Locality.ALL)
+//                .privacy(Privacy.PUBLIC)
+//                .action((ctx) -> {
+//                    try {
+//                        this.silent.send(String.join("\n", "欢迎使用机器人！", "我可以帮你回答各种问题。", "直接发送你的问题即可。"), ctx.chatId());
+//                        LoggingUtils.logOperation("START_BOT", String.valueOf(ctx.chatId()), "用户开始使用机器人");
+//                    } catch (Exception e) {
+//                        LoggingUtils.logError("START_BOT_ERROR", "启动机器人失败", e);
+//                    }
+//                })
+//                .build();
+//    }
+
+//    public Ability helpAbility() {
+//        return Ability
+//                .builder()
+//                .name("help")
+//                .info("显示帮助信息")
+//                .locality(Locality.ALL)
+//                .privacy(Privacy.PUBLIC)
+//                .action((ctx) -> {
+//                    try {
+//                        this.silent.send(String.join("\n",
+//                                "机器人使用帮助：",
+//                                "1. 直接发送问题，我会尽力回答",
+//                                "2. 使用 /start 开始使用",
+//                                "3. 使用 /help 显示此帮助信息",
+//                                "4. 使用 /clearc 清除所有用户会话记录（仅管理员可用）"), ctx.chatId());
+//                        LoggingUtils.logOperation("SHOW_HELP", String.valueOf(ctx.chatId()), "显示帮助信息");
+//                    } catch (Exception e) {
+//                        LoggingUtils.logError("SHOW_HELP_ERROR", "显示帮助信息失败", e);
+//                    }
+//                })
+//                .build();
+//    }
+
+//    public Ability clearConversationsAbility() {
+//        return Ability
+//                .builder()
+//                .name("clearc")
+//                .info("清除所有用户的会话记录")
+//                .locality(Locality.ALL)
+//                .privacy(Privacy.CREATOR) // 只有创建者可以使用此命令
+//                .action((ctx) -> {
+//                    try {
+//                        int count = gptService.clearAllConversations();
+//                        this.silent.send(String.format("已成功清除所有用户会话记录，共 %d 个会话。", count), ctx.chatId());
+//                        LoggingUtils.logOperation("CLEAR_CONVERSATIONS", String.valueOf(ctx.chatId()), "清除所有会话记录");
+//                    } catch (Exception e) {
+//                        LoggingUtils.logError("CLEAR_CONVERSATIONS_ERROR", "清除会话记录失败", e);
+//                    }
+//                })
+//                .build();
+//    }
+
+//    public Ability showConfig() {
+//        return Ability
+//                .builder()
+//                .name("showconfig")
+//                .info("显示当前配置")
+//                .locality(ALL)
+//                .privacy(PUBLIC)
+//                .action((MessageContext ctx) -> {
+//                    try {
+//                        Map<String, Object> config = configManagementService.getCurrentConfig();
+//                        String configJson = objectMapper.writerWithDefaultPrettyPrinter().writeValueAsString(config);
+//                        silent.send("当前配置：\n" + configJson, ctx.chatId());
+//                        LoggingUtils.logOperation("SHOW_CONFIG", String.valueOf(ctx.chatId()), "显示当前配置");
+//                    } catch (Exception e) {
+//                        LoggingUtils.logError("SHOW_CONFIG_ERROR", "显示配置失败", e);
+//                        silent.send("获取配置失败：" + e.getMessage(), ctx.chatId());
+//                    }
+//                })
+//                .build();
+//    }
+
+//    public Ability updateConfig() {
+//        return Ability
+//                .builder()
+//                .name("updateconfig")
+//                .info("更新配置")
+//                .locality(ALL)
+//                .privacy(PUBLIC)
+//                .action((MessageContext ctx) -> {
+//                    try {
+//                        String[] args = ctx.arguments();
+//                        if (args.length < 2) {
+//                            silent.send("用法：/updateconfig <配置路径> <新值>\n例如：/updateconfig message.conversation_timeout 30", ctx.chatId());
+//                            return;
+//                        }
+//
+//                        String path = args[0];
+//                        String value = args[1];
+//
+//                        // 将路径转换为Map结构
+//                        Map<String, Object> updates = createUpdateMap(path, value);
+//
+//                        // 更新配置
+//                        configManagementService.updateConfig(updates);
+//
+//                        silent.send("配置已更新", ctx.chatId());
+//                        LoggingUtils.logOperation("UPDATE_CONFIG", String.valueOf(ctx.chatId()), "更新配置成功");
+//                    } catch (Exception e) {
+//                        LoggingUtils.logError("UPDATE_CONFIG_ERROR", "更新配置失败", e);
+//                        silent.send("更新配置失败", ctx.chatId());
+//                    }
+//                })
+//                .build();
+//    }
 
     private Map<String, Object> createUpdateMap(String path, String value) {
         String[] parts = path.split("\\.");
@@ -461,7 +508,7 @@ public class MyAmazingBot extends AbilityBot{
                 .privacy(Privacy.ADMIN)
                 .action((ctx)->{
                     try {
-                        scoreService.initChat(ctx);
+//                        scoreService.initChat(ctx);
                         scoreService.initAdminGroup(ctx);
                     } catch (Exception e) {
                         LoggingUtils.logError("INIT_ADMIN_GROUP_ERROR", "初始化管理群组失败", e);
@@ -471,76 +518,76 @@ public class MyAmazingBot extends AbilityBot{
                 .build();
     }
 
-    /**
-     * 添加特殊积分给用户
-     * @return
-     */
-    public Ability addPoints() {
-        return Ability
-                .builder()
-                .name("addpoints")
-                .info("为用户添加特殊积分")
-                .locality(Locality.ALL)
-                .privacy(Privacy.ADMIN)
-                .action((ctx) -> {
-                    try {
-                        String[] args = ctx.arguments();
-                        if (args.length < 2) {
-                            silent.send("用法: /addpoints <数字> @用户名", ctx.chatId());
-                            return;
-                        }
-                        
-                        // 解析积分数量
-                        int points;
-                        try {
-                            points = Integer.parseInt(args[0]);
-                        } catch (NumberFormatException e) {
-                            silent.send("错误：积分数量必须是数字", ctx.chatId());
-                            return;
-                        }
-                        
-                        // 获取用户名
-                        String userName = args[1];
-                        
-                        // 调用服务方法添加积分
-                        String result = scoreService.addPointsToUser(
-                            String.valueOf(ctx.chatId()), 
-                            userName, 
-                            points
-                        );
-                        
-                        silent.send(result, ctx.chatId());
-                        
-                    } catch (Exception e) {
-                        LoggingUtils.logError("ADD_POINTS_ERROR", "添加积分失败", e);
-                        silent.send("添加积分失败", ctx.chatId());
-                    }
-                })
-                .build();
-    }
+//    /**
+//     * 添加特殊积分给用户
+//     * @return
+//     */
+//    public Ability addPoints() {
+//        return Ability
+//                .builder()
+//                .name("addpoints")
+//                .info("为用户添加特殊积分")
+//                .locality(Locality.ALL)
+//                .privacy(Privacy.ADMIN)
+//                .action((ctx) -> {
+//                    try {
+//                        String[] args = ctx.arguments();
+//                        if (args.length < 2) {
+//                            silent.send("用法: /addpoints <数字> @用户名", ctx.chatId());
+//                            return;
+//                        }
+//
+//                        // 解析积分数量
+//                        int points;
+//                        try {
+//                            points = Integer.parseInt(args[0]);
+//                        } catch (NumberFormatException e) {
+//                            silent.send("错误：积分数量必须是数字", ctx.chatId());
+//                            return;
+//                        }
+//
+//                        // 获取用户名
+//                        String userName = args[1];
+//
+//                        // 调用服务方法添加积分
+//                        String result = scoreService.addPointsToUser(
+//                            String.valueOf(ctx.chatId()),
+//                            userName,
+//                            points
+//                        );
+//
+//                        silent.send(result, ctx.chatId());
+//
+//                    } catch (Exception e) {
+//                        LoggingUtils.logError("ADD_POINTS_ERROR", "添加积分失败", e);
+//                        silent.send("添加积分失败", ctx.chatId());
+//                    }
+//                })
+//                .build();
+//    }
 
 
-    /**
-     * 普通用户查看自己的积分
-     */
-    public Ability viewPoints() {
-        return Ability
-                .builder()
-                .name("viewpoint")
-                .info("查看自己的积分")
-                .locality(Locality.ALL)
-                .privacy(Privacy.PUBLIC)
-                .action((ctx)->{
-                    try {
-                        scoreService.viewPoints(ctx);
-                    } catch (Exception e) {
-                        LoggingUtils.logError("VIEW_POINTS_ERROR", "查看积分失败", e);
-                        silent.send("查看积分失败", ctx.chatId());
-                    }
-                    
-                })
-                .build();
-    }
+//    /**
+//     * 普通用户查看自己的积分
+//     */
+//    public Ability viewPoints() {
+//        return Ability
+//                .builder()
+//                .name("viewpoint")
+//                .info("查看自己的积分")
+//                .locality(Locality.ALL)
+//                .privacy(Privacy.PUBLIC)
+//                .action((ctx)->{
+//                    try {
+//                        scoreService.viewPoints(ctx);
+//                    } catch (Exception e) {
+//                        LoggingUtils.logError("VIEW_POINTS_ERROR", "查看积分失败", e);
+//                        silent.send("查看积分失败", ctx.chatId());
+//                    }
+//
+//                })
+//                .build();
+//    }
 
     /**
      * 管理员查看活动积分排名
@@ -564,10 +611,10 @@ public class MyAmazingBot extends AbilityBot{
                             try {
                                 int eventId = Integer.parseInt(args[0]);
                                 Map<String, Object> result = scoreService.getEventPointsRankingMessage(eventId, 0, String.valueOf(ctx.chatId()));
-                                
+
                                 String text = (String) result.get("text");
                                 Object keyboard = result.get("keyboard");
-                                
+
                                 if (keyboard != null) {
                                     // 发送带键盘的消息
                                     sendMessageWithKeyboard(String.valueOf(ctx.chatId()), text, keyboard);
@@ -582,6 +629,205 @@ public class MyAmazingBot extends AbilityBot{
                     } catch (Exception e) {
                         LoggingUtils.logError("POINT_LIST_ERROR", "查看积分排名失败", e);
                         silent.send("查看积分排名失败", ctx.chatId());
+                    }
+                })
+                .build();
+    }
+
+    /**
+     * 切换AI互动功能开关
+     */
+    public Ability toggleAiInteraction() {
+        return Ability
+                .builder()
+                .name("toggleai")
+                .info("切换AI互动功能开关（活动提醒和回答用户问题）")
+                .locality(ALL)
+                .privacy(Privacy.ADMIN)
+                .action((ctx) -> {
+                    try {
+                        // 获取当前AI互动状态
+                        boolean currentStatus = botConfig.isAiInteraction();
+                        
+                        // 切换状态
+                        boolean newStatus = !currentStatus;
+                        
+                        // 更新配置
+                        Map<String, Object> updates = new HashMap<>();
+                        updates.put("aiInteraction", newStatus);
+                        configManagementService.updateConfig(updates);
+                        
+                        // 发送确认消息
+                        String statusText = newStatus ? "已开启" : "已关闭";
+                        String message = String.format("AI互动功能%s\n\n当前状态：%s\n功能包括：\n• 活动提醒和总结\n• 自动回答用户问题", 
+                                statusText, statusText);
+                        silent.send(message, ctx.chatId());
+                        
+                        LoggingUtils.logOperation("TOGGLE_AI_INTERACTION", 
+                                String.valueOf(ctx.user().getId()), 
+                                String.format("AI互动功能切换为: %s", statusText));
+                    } catch (Exception e) {
+                        LoggingUtils.logError("TOGGLE_AI_INTERACTION_ERROR", "切换AI互动功能失败", e);
+                        silent.send("切换AI互动功能失败", ctx.chatId());
+                    }
+                })
+                .build();
+    }
+
+    /**
+     * 查看AI互动功能状态
+     */
+    public Ability checkAiStatus() {
+        return Ability
+                .builder()
+                .name("aistatus")
+                .info("查看AI互动功能当前状态")
+                .locality(ALL)
+                .privacy(Privacy.ADMIN)
+                .action((ctx) -> {
+                    try {
+                        boolean currentStatus = botConfig.isAiInteraction();
+                        String statusText = currentStatus ? "已开启" : "已关闭";
+                        String message = String.format("AI互动功能状态：%s\n\n功能说明：\n• 活动提醒和总结\n• 自动回答用户问题\n\n使用 /toggleai 来切换状态", statusText);
+                        silent.send(message, ctx.chatId());
+                    } catch (Exception e) {
+                        LoggingUtils.logError("CHECK_AI_STATUS_ERROR", "查看AI互动状态失败", e);
+                        silent.send("查看AI互动状态失败", ctx.chatId());
+                    }
+                })
+                .build();
+    }
+    
+    /**
+     * 开始在当前群聊回复消息
+     */
+    public Ability beginResponse() {
+        return Ability
+                .builder()
+                .name("beginres")
+                .info("开始在当前群聊回复消息")
+                .locality(ALL)
+                .privacy(Privacy.ADMIN)
+                .action((ctx) -> {
+                    try {
+                        String groupId = String.valueOf(ctx.chatId());
+                        String threadId = null;
+                        
+                        // 获取thread_id（如果有的话）
+                        if (ctx.update().getMessage().getReplyToMessage() != null && 
+                            ctx.update().getMessage().getReplyToMessage().getMessageThreadId() != null) {
+                            threadId = String.valueOf(ctx.update().getMessage().getReplyToMessage().getMessageThreadId());
+                        } else if (ctx.update().getMessage().getMessageThreadId() != null && 
+                                   ctx.update().getMessage().getReplyToMessage() == null) {
+                            threadId = String.valueOf(ctx.update().getMessage().getMessageThreadId());
+                        }
+                        
+                        String result = sqlService.addGroupToResponse(groupId, threadId);
+                        SendMessage message = SendMessage
+                                .builder()
+                                .chatId(groupId)
+                                .text(result)
+                                .build();
+                        if(threadId != null)
+                            message.setMessageThreadId(Integer.parseInt(threadId));
+                        this.replyMessage(message);
+//                        silent.send(result, ctx.chatId());
+                        
+                        LoggingUtils.logOperation("BEGIN_RESPONSE_COMMAND", 
+                            String.valueOf(ctx.user().getId()),
+                            String.format("管理员启用群聊回复功能 - GroupId: %s, ThreadId: %s", groupId, threadId));
+                            
+                    } catch (Exception e) {
+                        LoggingUtils.logError("BEGIN_RESPONSE_ERROR", "启用群聊回复功能失败", e);
+                        silent.send("启用群聊回复功能失败", ctx.chatId());
+                    }
+                })
+                .build();
+    }
+    
+    /**
+     * 停止在当前群聊回复@消息
+     */
+    public Ability stopResponse() {
+        return Ability
+                .builder()
+                .name("stopres")
+                .info("停止在当前群聊回复消息")
+                .locality(ALL)
+                .privacy(Privacy.ADMIN)
+                .action((ctx) -> {
+                    try {
+                        String groupId = String.valueOf(ctx.chatId());
+                        String threadId = null;
+
+                        if (ctx.update().getMessage().getReplyToMessage() != null &&
+                                ctx.update().getMessage().getReplyToMessage().getMessageThreadId() != null) {
+                            threadId = String.valueOf(ctx.update().getMessage().getReplyToMessage().getMessageThreadId());
+                        } else if (ctx.update().getMessage().getMessageThreadId() != null &&
+                                ctx.update().getMessage().getReplyToMessage() == null) {
+                            threadId = String.valueOf(ctx.update().getMessage().getMessageThreadId());
+                        }
+
+                        String result = sqlService.removeGroupFromResponse(groupId, threadId);
+                        SendMessage message = SendMessage
+                                .builder()
+                                .chatId(groupId)
+                                .text(result)
+                                .build();
+                        if(threadId != null)
+                            message.setMessageThreadId(Integer.parseInt(threadId));
+                        this.replyMessage(message);
+                        
+                        LoggingUtils.logOperation("STOP_RESPONSE_COMMAND", 
+                            String.valueOf(ctx.user().getId()),
+                            String.format("管理员禁用群聊回复功能 - GroupId: %s, ThreadId: %s", groupId, threadId));
+                            
+                    } catch (Exception e) {
+                        LoggingUtils.logError("STOP_RESPONSE_ERROR", "禁用群聊回复功能失败", e);
+                        silent.send("禁用群聊回复功能失败", ctx.chatId());
+                    }
+                })
+                .build();
+    }
+    
+    /**
+     * 查看当前群聊的回复状态
+     */
+    public Ability checkResponseStatus() {
+        return Ability
+                .builder()
+                .name("checkres")
+                .info("查看当前群聊的回复状态")
+                .locality(ALL)
+                .privacy(Privacy.ADMIN)
+                .action((ctx) -> {
+                    try {
+                        String groupId = String.valueOf(ctx.chatId());
+                        String threadId = null;
+                        String charName = ctx.update().getMessage().getChat().getTitle();
+
+                        // 获取thread_id（如果有的话）
+                        if (ctx.update().getMessage().getReplyToMessage() != null &&
+                            ctx.update().getMessage().getReplyToMessage().getMessageThreadId() != null) {
+                            threadId = String.valueOf(ctx.update().getMessage().getReplyToMessage().getMessageThreadId());
+                        } else if (ctx.update().getMessage().getMessageThreadId() != null &&
+                                   ctx.update().getMessage().getReplyToMessage() == null) {
+                            threadId = String.valueOf(ctx.update().getMessage().getMessageThreadId());
+                        }
+
+                        String result = sqlService.getGroupResponseStatus(charName,groupId, threadId);
+                        SendMessage message = SendMessage
+                                .builder()
+                                .chatId(groupId)
+                                .text(result)
+                                .build();
+                        if(threadId != null)
+                            message.setMessageThreadId(Integer.parseInt(threadId));
+                        this.replyMessage(message);
+                        
+                    } catch (Exception e) {
+                        LoggingUtils.logError("CHECK_RESPONSE_STATUS_ERROR", "查看群聊回复状态失败", e);
+                        silent.send("查看群聊回复状态失败", ctx.chatId());
                     }
                 })
                 .build();

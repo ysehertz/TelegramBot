@@ -88,6 +88,7 @@ public class ConfigManagementService {
         Map<String, Object> botMap = new HashMap<>();
         botMap.put("oneOrEveryday", botConfig.getOneOrEveryday());
         botMap.put("createId", botConfig.getCreateId());
+        botMap.put("aiInteraction", botConfig.isAiInteraction());
         
         Map<String, Object> messageMap = new HashMap<>();
         messageMap.put("conversation_timeout", botConfig.getMessage().getConversation_timeout());
@@ -152,6 +153,13 @@ public class ConfigManagementService {
         if (botMap != null) {
             botConfig.setOneOrEveryday((String) botMap.get("oneOrEveryday"));
             botConfig.setCreateId(((Number) botMap.get("createId")).longValue());
+            // 安全地处理aiInteraction配置
+            Object aiInteractionValue = botMap.get("aiInteraction");
+            if (aiInteractionValue instanceof Boolean) {
+                botConfig.setAiInteraction((Boolean) aiInteractionValue);
+            } else if (aiInteractionValue != null) {
+                botConfig.setAiInteraction(Boolean.parseBoolean(aiInteractionValue.toString()));
+            }
             
             Map<String, Object> messageMap = (Map<String, Object>) botMap.get("message");
             if (messageMap != null) {

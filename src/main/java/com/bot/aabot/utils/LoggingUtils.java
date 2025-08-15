@@ -31,7 +31,7 @@ public class LoggingUtils {
     private static final DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS");
     
     // 日志文件路径
-    private static String logFilePath = "./logs";
+    private static String logFilePath = "./logs/TgLog";
     
     // 设置日志文件路径
     @Value("${logging.file.path:./logs}")

@@ -19,7 +19,7 @@ public class TextMessageEntity {
     // 发送时间
     private String sendTime;
     // 会话id
-    private Long sessionId;
+    private String sessionId;
     // 消息id
     private Integer messageId;
     // 消息内容

@@ -878,6 +878,7 @@ public class ScoreDao {
         List<Map<String, Object>> groupTopics = jdbcTemplate.queryForList("SELECT group_id, group_name, topic_id, topic_name FROM group_chat_records");
         List<GroupTopicMessage> result = new ArrayList<>();
         for (Map<String, Object> groupTopic : groupTopics) {
+            LoggingUtils.logOperation( "GET_GROUP_TOPIC_MESSAGES_BY_DATE", "bot", "获取待总结的群聊,群聊名称" + String.valueOf(groupTopic.get("topic_name")));
             String groupId = String.valueOf(groupTopic.get("group_id"));
             String groupName = String.valueOf(groupTopic.get("group_name"));
             Object topicIdObj = groupTopic.get("topic_id");
@@ -887,6 +888,8 @@ public class ScoreDao {
             String topicIdCond = (topicIdObj == null) ? "IS NULL" : "= '" + topicIdObj + "'";
             String sql = String.format("SELECT user_name, send_time, message FROM log WHERE chat_id = ? AND topic_id %s AND send_time >= ? AND send_time <= ? ORDER BY send_time ASC", topicIdCond);
             List<Map<String, Object>> messages = jdbcTemplate.queryForList(sql, groupId, startTime, endTime);
+//            记录sql信息和执行结果
+            LoggingUtils.logOperation( "GET_GROUP_TOPIC_MESSAGES_BY_DATE", "bot",  "sql" + sql + "执行结果"+startTime +"--"+endTime + messages);
             if (messages.isEmpty()) continue;
             GroupTopicMessage gtm = new GroupTopicMessage();
             gtm.groupId = groupId;
@@ -1191,6 +1194,20 @@ public class ScoreDao {
         } catch (Exception e) {
             LoggingUtils.logError("GET_EVENT_BY_ID_ERROR", "根据ID获取活动失败: " + e.getMessage(), e);
             return null;
+        }
+    }
+
+    /**
+     * 获取所有管理员用户名列表
+     * @return 管理员用户名列表
+     */
+    public List<String> getAdminUserNames() {
+        String sql = "SELECT user_name FROM admin_user WHERE user_name IS NOT NULL";
+        try {
+            return jdbcTemplate.queryForList(sql, String.class);
+        } catch (Exception e) {
+            LoggingUtils.logError("GET_ADMIN_USER_NAMES_ERROR", "获取管理员用户名列表失败: " + e.getMessage(), e);
+            return List.of();
         }
     }
 }

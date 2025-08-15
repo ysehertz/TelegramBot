@@ -1,6 +1,9 @@
 bot:
+#  forbidUrl : "D:\\forbid.txt"
+  forbidUrl : "/app/logs/txt/forbid.txt"
   oneOrEveryday: one # one or everyday ,Log storage: one file per day or everyday
   createId: 7744901692
+  aiInteraction: true # 是否开启AI互动功能（活动提醒和回答用户问题），默认关闭
   message:
     conversation_timeout: 60 #Maximum time a single session can exist in minutes
     max_context: 20 #Maximum maintainable context length for a single user

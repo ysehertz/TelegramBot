@@ -24,28 +24,34 @@ public class BotReplyUtil implements ApplicationContextAware {
      * 统一回复方法，自动判断并设置threadId（话题id）
      */
     public static void reply(SendMessage message, Update update) {
+        LoggingUtils.logOperation("BOT_REPLY", String.valueOf(update != null && update.getMessage() != null ? update.getMessage().getFrom().getId() : "unknown"), message.getText());
         try {
             Message msg = null;
-            if (update.getMessage() != null) {
-                msg = update.getMessage();
-            } else if (update.getEditedMessage() != null) {
-                msg = update.getEditedMessage();
-            } else if (update.getCallbackQuery() != null && update.getCallbackQuery().getMessage() != null) {
-                MaybeInaccessibleMessage maybeMsg = update.getCallbackQuery().getMessage();
-                if (maybeMsg instanceof Message) {
-                    msg = (Message) maybeMsg;
+            if(update!= null){
+                if (update.getMessage() != null) {
+                    msg = update.getMessage();
+                } else if (update.getEditedMessage() != null) {
+                    msg = update.getEditedMessage();
+                } else if (update.getCallbackQuery() != null && update.getCallbackQuery().getMessage() != null) {
+                    MaybeInaccessibleMessage maybeMsg = update.getCallbackQuery().getMessage();
+                    if (maybeMsg instanceof Message) {
+                        msg = (Message) maybeMsg;
+                    }
                 }
-            }
-            if (msg != null && msg.getMessageThreadId() != null && message.getReplyToMessageId() == null) {
-                // 兼容新版Telegram Bot API，SendMessage有setMessageThreadId
-                message.setMessageThreadId(msg.getMessageThreadId());
+                if(msg != null && msg.getReplyToMessage() != null && msg.getReplyToMessage().getMessageThreadId() != null){
+                    message.setMessageThreadId(msg.getReplyToMessage().getMessageThreadId());
+                } else
+                if (msg != null && msg.getMessageThreadId() != null && msg.getReplyToMessage() == null) {
+                    // 兼容新版Telegram Bot API，SendMessage有setMessageThreadId
+                    message.setMessageThreadId(msg.getMessageThreadId());
+                }
             }
             Object bot = context.getBean("myAmazingBot");
             bot.getClass().getMethod("replyMessage", SendMessage.class).invoke(bot, message);
             LoggingUtils.logOperation("BOT_REPLY", String.valueOf(msg != null ? msg.getFrom().getId() : "unknown"), "发送消息成功");
         } catch (Exception e) {
             log.error("[BOT_REPLY_ERROR] 发送消息失败", e);
-            LoggingUtils.logError("BOT_REPLY_ERROR", "发送消息失败", e);
+            LoggingUtils.logError("BOT_REPLY_ERROR", "发送消息失败" +message.getEntities().toString(), e);// 返回按钮信息
         }
     }
 } 

@@ -10,6 +10,8 @@ import org.springframework.context.annotation.Configuration;
 public class BotConfig {
     private String oneOrEveryday;
     private Long createId;
+    private String forbidUrl; // 添加禁止词文件路径
+    private boolean aiInteraction = false; // 是否开启AI互动功能，默认关闭
     private MessageConfig message;
     private KnowledgeConfig knowledge;
 

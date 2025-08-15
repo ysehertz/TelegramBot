@@ -67,5 +67,22 @@ public class TableInit {
                 "    UNIQUE(user_id, group_id)" +
                 ");";
         sqLiteUtil.createTable(sql);
+        
+        // 创建群聊回复白名单表
+        sql = "CREATE TABLE IF NOT EXISTS res_group (" +
+                "    thread_id TEXT," +
+                "    group_id TEXT NOT NULL," +
+                "    created_time TEXT NOT NULL DEFAULT (strftime('%Y-%m-%d %H:%M:%S','now','localtime'))," +
+                "    UNIQUE(group_id, thread_id)" +
+                ");";
+        sqLiteUtil.createTable(sql);
+        
+        // 创建管理员群组表
+        sql = "CREATE TABLE IF NOT EXISTS admin_group (" +
+                "    id INTEGER PRIMARY KEY AUTOINCREMENT," +
+                "    group_id TEXT NOT NULL UNIQUE," +
+                "    created_time TEXT NOT NULL DEFAULT (strftime('%Y-%m-%d %H:%M:%S','now','localtime'))" +
+                ");";
+        sqLiteUtil.createTable(sql);
     }
 }
