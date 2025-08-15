@@ -24,7 +24,9 @@ public class YamlPropertySourceFactory implements PropertySourceFactory {
         
         // 如果指定了外部配置文件路径，优先使用外部配置
         if (externalConfigPath != null && !externalConfigPath.isEmpty()) {
-            factory.setResources(new FileSystemResource(externalConfigPath + "/bot-config.yml"));
+            // 获取当前激活的环境配置
+            String activeProfile = System.getProperty("spring.profiles.active", "dev");
+            factory.setResources(new FileSystemResource(externalConfigPath + "/bot-config-" + activeProfile + ".yml"));
         } else {
             factory.setResources(encodedResource.getResource());
         }

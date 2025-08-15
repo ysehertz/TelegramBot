@@ -9,7 +9,7 @@ import org.springframework.beans.factory.annotation.Value;
 
 @Configuration
 @ConfigurationProperties()
-@PropertySource(value = "classpath:bot-config.yml", factory = YamlPropertySourceFactory.class)
+@PropertySource(value = "classpath:bot-config-${spring.profiles.active:dev}.yml", factory = YamlPropertySourceFactory.class)
 public class ConfigProperties {
     
     @Autowired

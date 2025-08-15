@@ -1,9 +1,9 @@
 spring:
+  profiles:
+    active: ${SPRING_PROFILES_ACTIVE:dev}
   datasource:
     type: com.zaxxer.hikari.HikariDataSource
     driver-class-name: org.sqlite.JDBC
-    url: "jdbc:sqlite:/app/logs/tg_archive.db"
-#    url: "jdbc:sqlite:D:\\tg_archive.db"
   ai:
     openai:
       api-key: "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"
@@ -22,7 +22,7 @@ spring:
         collection-name: "test"
         use-tls: true
   config:
-    import: bot-config.yml,score-config.yml
+    import: bot-config-${spring.profiles.active:dev}.yml,score-config.yml
 
 # Bot相关配置
 bot:
@@ -64,8 +64,7 @@ logging:
     com.bot.aabot.service: INFO
     com.bot.aabot.utils: INFO
   file:
-#    path: D:/logs
-    path: /app/logs/tgLog
+    # 日志路径在各环境配置中设置
   logback:
     rollingpolicy:
       max-file-size: 10MB
