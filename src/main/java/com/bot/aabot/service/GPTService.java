@@ -97,7 +97,7 @@ public class GPTService {
                     .model(SIMPLE_MODEL)
                     .temperature(simpleTemperature)
                     .build())
-                .user("你是一个消息分类助手。请判断下面的消息是否是一个问题或者提问或者请求。仅返回 'yes' 或 'no'。消息内容：" + input)
+                .user("你是一名专业知识丰富的社区管理人员，现在需要对下面的消息做出如下判断：**如何这条消息明显是一个专业性的提问，并且你在不了解历史聊天记录的情况下就可以对消息做出回答则返回`yes`，或者返回`no`**,仅返回 'yes' 或 'no'。消息内容：" + input)
                 .call()
                 .content();
             
@@ -146,7 +146,7 @@ public class GPTService {
                 userMessage.append("- ").append(message.getContent()).append("\n");
             }
             
-            userMessage.append("\n请判断后续消息中是否对一条消息进行回答？请只回答'yes'或'no'。");
+            userMessage.append("\n请判断后续消息中是否有任何消息对一条消息进行了互动（可能是回答问题，也可能是对问题进行了延伸等等形式都属于互动）？请只回答'yes'或'no'。");
             
             // 获取AI分析结果
             String response = simpleChatClient.prompt()

@@ -333,7 +333,8 @@ public class SqlService {
                     .builder()
                     .chatId(update.getCallbackQuery().getMessage().getChatId())
                     .replyToMessageId(messageId)
-                    .text(update.getCallbackQuery().getData()+" : "+guideMessage.getReply() + "\n\n"+"click the button below to learn more:"+"\n"+"A:"+guideMessage.getGuide1()+"\n"+"B:"+guideMessage.getGuide2())
+//                    .text(update.getCallbackQuery().getData()+" : "+guideMessage.getReply() + "\n\n"+"click the button below to learn more:"+"\n"+"A:"+guideMessage.getGuide1()+"\n"+"B:"+guideMessage.getGuide2())
+                    .text(update.getCallbackQuery().getData()+" : "+guideMessage.getReply() + "\n\n"+"点击下方按钮了解更多信息:"+"\n"+"A:"+guideMessage.getGuide1()+"\n"+"B:"+guideMessage.getGuide2())
                     .replyMarkup(InlineKeyboardMarkup
                             .builder()
 //                            .keyboardRow(new InlineKeyboardRow(
