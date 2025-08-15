@@ -22,9 +22,9 @@ bot:
     top-k: 4 # 相似度检索结果数量
     similarity-threshold: 0.8 # 相似度阈值
 #    embedding-model: "text-embetext-embedding-ada-002dding-3-small" # OpenAI嵌入模型名称
-    embedding-model: "text-embedding-ada-002" # OpenAI嵌入模型名称
+    embedding-model: "text-embedding-3-large" # OpenAI嵌入模型名称
 
-    vector-size: 1536 # 向量维度（text-embedding-3-small模型为1536维）
+    vector-size: 3072 # 向量维度（text-embedding-3-large模型为3072维）
     
     # Qdrant配置
     use-qdrant: true # 是否使用Qdrant向量数据库

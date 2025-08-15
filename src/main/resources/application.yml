@@ -13,7 +13,7 @@ spring:
           temperature: 0.7
       embedding:
         options:
-          model: text-embedding-ada-002
+          model: text-embedding-3-large
     vectorstore:
       qdrant:
         host: "69ce39b0-957e-4ad5-a0c1-54fa15119fc1.europe-west3-0.gcp.cloud.qdrant.io"
@@ -63,7 +63,7 @@ logging:
     root: INFO
     com.bot.aabot.service: INFO
     com.bot.aabot.utils: INFO
-  file:
+#  file:
     # 日志路径在各环境配置中设置
   logback:
     rollingpolicy:
