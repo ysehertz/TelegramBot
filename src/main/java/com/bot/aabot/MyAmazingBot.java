@@ -42,6 +42,10 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
 
 import java.util.*;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 
 import static org.telegram.telegrambots.abilitybots.api.objects.Locality.ALL;
 import static org.telegram.telegrambots.abilitybots.api.objects.Privacy.PUBLIC;
@@ -831,6 +835,180 @@ public class MyAmazingBot extends AbilityBot{
                     }
                 })
                 .build();
+    }
+
+    /**
+     * 查看当前的违禁词列表
+     */
+    public Ability forbidList() {
+        return Ability
+                .builder()
+                .name("forbidlist")
+                .info("查看当前的违禁词列表")
+                .locality(ALL)
+                .privacy(Privacy.ADMIN)
+                .action((ctx) -> {
+                    try {
+                        String filePath = botConfig.getForbidUrl();
+                        if (filePath == null || filePath.trim().isEmpty()) {
+                            silent.send("未配置违禁词文件路径", ctx.chatId());
+                            return;
+                        }
+                        Path path = Paths.get(filePath);
+                        List<String> lines = Files.exists(path) ? Files.readAllLines(path, StandardCharsets.UTF_8) : new ArrayList<>();
+                        List<String> words = new ArrayList<>();
+                        for (String l : lines) {
+                            if (l != null && !l.trim().isEmpty()) {
+                                words.add(l.trim());
+                            }
+                        }
+                        StringBuilder sb = new StringBuilder();
+                        if (words.isEmpty()) {
+                            sb.append("当前违禁词列表为空");
+                        } else {
+                            sb.append("当前违禁词（").append(words.size()).append(")：\n");
+                            for (int i = 0; i < words.size(); i++) {
+                                sb.append(i + 1).append(". ").append(words.get(i)).append("\n");
+                            }
+                        }
+                        SendMessage message = SendMessage.builder()
+                                .chatId(String.valueOf(ctx.chatId()))
+                                .text(sb.toString())
+                                .build();
+                        this.replyMessage(message);
+                        LoggingUtils.logOperation("FORBID_LIST", String.valueOf(ctx.chatId()), "查看违禁词列表");
+                    } catch (Exception e) {
+                        LoggingUtils.logError("FORBID_LIST_ERROR", "查看违禁词列表失败", e);
+                        silent.send("查看违禁词列表失败", ctx.chatId());
+                    }
+                })
+                .build();
+    }
+
+    /**
+     * 删除单项违禁词
+     */
+    public Ability delForbid() {
+        return Ability
+                .builder()
+                .name("delforbid")
+                .info("删除单项违禁词：/delforbid 行号（从1开始）")
+                .locality(ALL)
+                .privacy(Privacy.ADMIN)
+                .action((ctx) -> {
+                    try {
+                        String[] args = ctx.arguments();
+                        if (args.length < 1) {
+                            silent.send("用法：/delforbid 行号（从1开始）", ctx.chatId());
+                            return;
+                        }
+                        int idx;
+                        try {
+                            idx = Integer.parseInt(args[0]);
+                        } catch (NumberFormatException nfe) {
+                            silent.send("行号必须是数字（从1开始）", ctx.chatId());
+                            return;
+                        }
+                        if (idx < 1) {
+                            silent.send("行号必须≥1", ctx.chatId());
+                            return;
+                        }
+
+                        String filePath = botConfig.getForbidUrl();
+                        if (filePath == null || filePath.trim().isEmpty()) {
+                            silent.send("未配置违禁词文件路径", ctx.chatId());
+                            return;
+                        }
+                        Path path = Paths.get(filePath);
+                        List<String> lines = Files.exists(path) ? Files.readAllLines(path, StandardCharsets.UTF_8) : new ArrayList<>();
+                        if (lines.isEmpty()) {
+                            silent.send("当前违禁词列表为空", ctx.chatId());
+                            return;
+                        }
+                        if (idx > lines.size()) {
+                            silent.send("行号超出范围（当前共有 " + lines.size() + " 行）", ctx.chatId());
+                            return;
+                        }
+                        String removedLine = lines.remove(idx - 1);
+                        Files.write(path, lines, StandardCharsets.UTF_8);
+                        SendMessage message = SendMessage.builder()
+                                .chatId(String.valueOf(ctx.chatId()))
+                                .text("已删除第" + idx + "行：" + removedLine)
+                                .build();
+                        this.replyMessage(message);
+                        LoggingUtils.logOperation("FORBID_DELETE", String.valueOf(ctx.chatId()), "删除违禁词第" + idx + "行");
+                    } catch (Exception e) {
+                        LoggingUtils.logError("FORBID_DELETE_ERROR", "删除违禁词失败", e);
+                        silent.send("删除违禁词失败", ctx.chatId());
+                    }
+                })
+                .build();
+    }
+
+    /**
+     * 添加一个违禁词
+     */
+    public Ability addForbid() {
+        return Ability
+                .builder()
+                .name("addforbid")
+                .info("添加一个违禁词：/addforbid 词")
+                .locality(ALL)
+                .privacy(Privacy.ADMIN)
+                .action((ctx) -> {
+                    try {
+                        String[] args = ctx.arguments();
+                        if (args.length < 1) {
+                            silent.send("用法：/addforbid 违禁词", ctx.chatId());
+                            return;
+                        }
+                        String input = String.join(" ", args).trim();
+                        String target = cleanForbiddenWord(input);
+                        if (target.isEmpty()) {
+                            silent.send("无效的违禁词", ctx.chatId());
+                            return;
+                        }
+
+                        String filePath = botConfig.getForbidUrl();
+                        if (filePath == null || filePath.trim().isEmpty()) {
+                            silent.send("未配置违禁词文件路径", ctx.chatId());
+                            return;
+                        }
+                        Path path = Paths.get(filePath);
+                        List<String> lines = Files.exists(path) ? Files.readAllLines(path, StandardCharsets.UTF_8) : new ArrayList<>();
+
+                        // 重复性校验（按清洗逻辑对齐SqlService）
+                        boolean exists = false;
+                        for (String l : lines) {
+                            if (cleanForbiddenWord(l).equals(target)) {
+                                exists = true;
+                                break;
+                            }
+                        }
+                        if (exists) {
+                            silent.send("该违禁词已存在", ctx.chatId());
+                            return;
+                        }
+
+                        lines.add(input);
+                        Files.write(path, lines, StandardCharsets.UTF_8);
+                        SendMessage message = SendMessage.builder()
+                                .chatId(String.valueOf(ctx.chatId()))
+                                .text("已添加违禁词：" + input)
+                                .build();
+                        this.replyMessage(message);
+                        LoggingUtils.logOperation("FORBID_ADD", String.valueOf(ctx.chatId()), "添加违禁词：" + input);
+                    } catch (Exception e) {
+                        LoggingUtils.logError("FORBID_ADD_ERROR", "添加违禁词失败", e);
+                        silent.send("添加违禁词失败", ctx.chatId());
+                    }
+                })
+                .build();
+    }
+
+    private String cleanForbiddenWord(String text) {
+        if (text == null) return "";
+        return text.replaceAll("[\\s,。;、]", "").toLowerCase();
     }
 
     /**
