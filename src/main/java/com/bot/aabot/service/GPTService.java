@@ -109,6 +109,31 @@ public class GPTService {
             return false;
         }
     }
+    /**
+     * 判断文本是否为引用问题（使用GPT-4o-mini进行智能判断）
+     * @param input 输入文本
+     * @return 是否为问题
+     */
+    public boolean isQuoteQuestion(String input) {
+        long startTime = System.currentTimeMillis();
+        try {
+            String response = simpleChatClient.prompt()
+                    .options(OpenAiChatOptions.builder()
+                            .model(SIMPLE_MODEL)
+                            .temperature(simpleTemperature)
+                            .build())
+                    .user("你是一名专业知识丰富的社区管理人员，现在需要对下面的对话消息做出如下判断（这条互动消息是一定是一条机器人的专业知识讲解消息和一个用户的消息；消息格式为`机器人[<消息内容>],用户[<消息内容>]`）：**用户是否是对机器人的消息抛出了疑问，并且这个疑问适合你这个专业知识丰富的管理员回答，适合则返回`yes`，或者返回`no`**,仅允许返回 'yes' 或 'no'。消息内容：" + input)
+                    .call()
+                    .content();
+
+            boolean result = response.trim().toLowerCase().contains("yes");
+            LoggingUtils.logPerformance("isQuestion", startTime);
+            return result;
+        } catch (Exception e) {
+            LoggingUtils.logError("IS_QUESTION_ERROR", "判断是否为问题失败", e);
+            return false;
+        }
+    }
 
     /**
      * 检查指定session的消息队列中是否已经有对第一条消息的回复（使用GPT-4o-mini进行逻辑分析）

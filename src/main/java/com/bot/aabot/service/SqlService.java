@@ -26,7 +26,6 @@ import org.telegram.telegrambots.meta.api.objects.message.Message;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.InlineKeyboardMarkup;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.InlineKeyboardButton;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.InlineKeyboardRow;
-import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 import org.springframework.scheduling.annotation.Async;
 import org.telegram.telegrambots.meta.api.objects.ChatPermissions;
 
@@ -37,7 +36,6 @@ import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
-import java.util.concurrent.CompletableFuture;
 
 /**
  * ClassName: SqlService
@@ -124,8 +122,44 @@ public class SqlService {
                             }
                         }
                     }
-                     if(!isAit)
-                    localSaveMessage(update);
+                    
+                    // 新增：检测是否为回复机器人消息的场景并进行智能追问处理
+                    if (!isAit) {
+                        try {
+                            Message replyTo = message.getReplyToMessage();
+                            boolean isReplyToBot = replyTo != null && replyTo.getFrom() != null && Boolean.TRUE.equals(replyTo.getFrom().getIsBot());
+                            if (isReplyToBot && replyTo != null && replyTo.hasText()) {
+                                String botMsg = replyTo.getText();
+                                String userMsg = message.getText();
+                                // 构建供判定的字符串：机器人[...],用户[...]
+                                String judgeText = "机器人[" + botMsg + "],用户[" + userMsg + "]";
+                                boolean shouldReply = gptService.isQuoteQuestion(judgeText);
+                                if (shouldReply) {
+                                    // 将上一条bot消息纳入上下文，并触发模块化AI回复
+                                    String composed = "机器人上一条消息:\n" + botMsg + "\n\n用户问题:\n" + userMsg + "\n\n请基于上述机器人消息作为背景进行解答。";
+                                    TextMessageEntity textMessageEntity = TextMessageEntity.builder()
+                                            .sessionId(String.valueOf(update.getMessage().getChatId()))
+                                            .messageId(update.getMessage().getMessageId())
+                                            .content(composed)
+                                            .sendTime(String.valueOf(update.getMessage().getDate()))
+                                            .isQuestion(true)
+                                            .update(update)
+                                            .build();
+                                    // 复用统一的@消息AI处理链路（结构化输出 + 上下文）
+                                    aitMessageWithRetry(textMessageEntity);
+                                    isAit = true;
+                                } else {
+                                    localSaveMessage(update);
+                                }
+                            } else {
+                                // 非回复机器人消息，按原流程落地保存
+                                localSaveMessage(update);
+                            }
+                        } catch (Exception ex) {
+                            // 发生异常时回退到本地保存，保证不丢消息
+                            localSaveMessage(update);
+                        }
+                    }
                 }
                 upLogEntity.setMessageType("text");
                 upLogEntity.setMessage(message.getText());
