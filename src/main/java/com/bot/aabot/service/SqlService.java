@@ -286,7 +286,8 @@ public class SqlService {
                 if (update.getCallbackQuery().getFrom().getId().equals(senderId) ){
                     callbackMessage(update,messageId);
                 }else {
-                    resRefuseMessage(update);
+//                    // 如果回复消息发送者ID与当前用户ID不一致，则发送拒绝回答的信息
+//                    resRefuseMessage(update);
                 }
                 LoggingUtils.logPerformance("callbackQuery", startTime);
                 return null;
