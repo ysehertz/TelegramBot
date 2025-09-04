@@ -6,8 +6,10 @@ import com.bot.aabot.entity.UserAchievement;
 import com.bot.aabot.entity.UserActivityLog;
 import com.bot.aabot.utils.LoggingUtils;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.jdbc.core.BeanPropertyRowMapper;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Component;
+import org.springframework.stereotype.Repository;
 
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
@@ -26,7 +28,7 @@ import java.util.Optional;
  * @version 1.0
  * @createTime 2025/4/27
  */
-@Component
+@Repository
 public class ScoreDao {
 
     @Autowired
@@ -45,17 +47,18 @@ public class ScoreDao {
         String sql = "SELECT * FROM event_records WHERE event_group_id = ? AND " +
                     "datetime('now') BETWEEN datetime(start_time) AND datetime(end_time)";
         try {
-            return jdbcTemplate.query(sql, (rs, rowNum) -> {
-                EventRecord event = new EventRecord();
-                event.setEventId(rs.getInt("event_id"));
-                event.setEventName(rs.getString("event_name"));
-                event.setEventDescription(rs.getString("event_description"));
-                event.setStartTime(rs.getString("start_time"));
-                event.setEndTime(rs.getString("end_time"));
-                event.setEventGroupId(rs.getString("event_group_id"));
-                event.setAdminGroupId(rs.getString("admin_group_id"));
-                return event;
-            }, groupId);
+//            return jdbcTemplate.query(sql, (rs, rowNum) -> {
+//                EventRecord event = new EventRecord();
+//                event.setEventId(rs.getInt("event_id"));
+//                event.setEventName(rs.getString("event_name"));
+//                event.setEventDescription(rs.getString("event_description"));
+//                event.setStartTime(rs.getString("start_time"));
+//                event.setEndTime(rs.getString("end_time"));
+//                event.setEventGroupId(rs.getString("event_group_id"));
+//                event.setAdminGroupId(rs.getString("admin_group_id"));
+//                return event;
+//            }, groupId);
+            return jdbcTemplate.query(sql,  new BeanPropertyRowMapper<>(EventRecord.class), groupId);
         } catch (Exception e) {
             LoggingUtils.logError("GET_EVENTS_ERROR", "获取活动列表失败: " + e.getMessage(), e);
             return List.of();
@@ -836,15 +839,7 @@ public class ScoreDao {
         }
     }
 
-    public String getAdminGroup() {
-        String sql = "SELECT group_id FROM admin_group LIMIT 1";
-        try {
-            return jdbcTemplate.queryForObject(sql, String.class);
-        } catch (Exception e) {
-            LoggingUtils.logError("GET_ADMIN_GROUP_ERROR", "获取管理群组失败: " + e.getMessage(), e);
-            return null;
-        }
-    }
+
 
     public boolean insertAdminGroup(String adminGroupId) {
     String sql = "INSERT INTO admin_group (group_id) VALUES (?)";

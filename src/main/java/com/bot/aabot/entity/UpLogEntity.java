@@ -1,5 +1,6 @@
 package com.bot.aabot.entity;
 
+import lombok.Builder;
 import lombok.Data;
 
 /**
@@ -11,6 +12,7 @@ import lombok.Data;
  * @version 1.0
  * @createTime 2025/3/19
  */
+@Builder
 @Data
 public class UpLogEntity {
     /**

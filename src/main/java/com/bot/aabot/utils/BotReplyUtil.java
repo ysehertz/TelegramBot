@@ -46,7 +46,7 @@ public class BotReplyUtil implements ApplicationContextAware {
                     message.setMessageThreadId(msg.getMessageThreadId());
                 }
             }
-            Object bot = context.getBean("myAmazingBot");
+            Object bot = context.getBean("tgBot");
             bot.getClass().getMethod("replyMessage", SendMessage.class).invoke(bot, message);
             LoggingUtils.logOperation("BOT_REPLY", String.valueOf(msg != null ? msg.getFrom().getId() : "unknown"), "发送消息成功");
         } catch (Exception e) {
@@ -54,4 +54,19 @@ public class BotReplyUtil implements ApplicationContextAware {
             LoggingUtils.logError("BOT_REPLY_ERROR", "发送消息失败" +message.getEntities().toString(), e);// 返回按钮信息
         }
     }
+
+    public static String getThreadId(Update update){
+        String threadId = null;
+        // 获取thread_id
+        if (update.getMessage().getReplyToMessage() != null &&
+                update.getMessage().getReplyToMessage().getMessageThreadId() != null) {
+            threadId = String.valueOf(update.getMessage().getReplyToMessage().getMessageThreadId());
+        } else if (update.getMessage().getMessageThreadId() != null &&
+                update.getMessage().getReplyToMessage() == null) {
+            threadId = String.valueOf(update.getMessage().getMessageThreadId());
+        }
+        return threadId;
+    }
+
+
 } 

@@ -1,15 +1,13 @@
 package com.bot.aabot.config;
 
-import com.bot.aabot.MyAmazingBot;
+import com.bot.aabot.TgBot;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.context.annotation.Lazy;
 import org.telegram.telegrambots.longpolling.TelegramBotsLongPollingApplication;
 import org.telegram.telegrambots.longpolling.util.DefaultGetUpdatesGenerator;
 import org.telegram.telegrambots.meta.TelegramUrl;
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
-import org.springframework.scheduling.annotation.EnableAsync;
 
 import java.util.List;
 
@@ -28,14 +26,14 @@ public class TelegramBotConfig {
     public TelegramBotsLongPollingApplication telegramBotsLongPollingApplication() throws TelegramApiException {
         TelegramBotsLongPollingApplication application = new TelegramBotsLongPollingApplication();
         
-        // 通过ApplicationContext获取MyAmazingBot实例
-        MyAmazingBot myAmazingBot = applicationContext.getBean(MyAmazingBot.class);
-        myAmazingBot.onRegister();
+        // 通过ApplicationContext获取TgBot实例
+        TgBot tgBot = applicationContext.getBean(TgBot.class);
+        tgBot.onRegister();
 
         DefaultGetUpdatesGenerator defaultGetUpdatesGenerator = new DefaultGetUpdatesGenerator(List.of("message_reaction","callback_query","message"));
 
 //       DefaultGetUpdatesGenerator defaultGetUpdatesGenerator = new DefaultGetUpdatesGenerator();
-        application.registerBot(BOT_TOKEN,() -> TelegramUrl.DEFAULT_URL, defaultGetUpdatesGenerator,myAmazingBot);
+        application.registerBot(BOT_TOKEN,() -> TelegramUrl.DEFAULT_URL, defaultGetUpdatesGenerator, tgBot);
         
         return application;
     }

@@ -2,6 +2,7 @@ package com.bot.aabot.service;
 
 import com.bot.aabot.context.DataContext;
 import com.bot.aabot.context.MessageContext;
+import com.bot.aabot.dao.GroupDao;
 import com.bot.aabot.entity.GPTAnswer;
 import com.bot.aabot.entity.GuideMessage;
 import com.bot.aabot.entity.TextMessageEntity;
@@ -40,7 +41,7 @@ import java.util.List;
 /**
  * ClassName: SqlService
  * Package: com.bot.aabot.service
- * Description:
+ * Description: **此类已经废弃**
  *
  * @author fuchen
  * @version 1.0
@@ -69,7 +70,8 @@ public class SqlService {
     private com.bot.aabot.config.BotConfig botConfig;
     @Autowired
     private com.bot.aabot.dao.ScoreDao scoreDao;
-
+    @Autowired
+    private GroupDao groupDao;
     /**
      * 保存消息（带重试和熔断器）
      */
@@ -79,7 +81,7 @@ public class SqlService {
             Message message = update.getMessage();
             String sql = "INSERT INTO "+ DataContext.tableName +" (form_name, message_id, user_id, user_name, message_type, message, send_time, chat_id, topic_id) "
                     + "VALUES (?, ?, ?, ?, ?, ?, datetime(? , 'unixepoch', 'localtime'), ?, ?)";
-            UpLogEntity upLogEntity = new UpLogEntity();
+            UpLogEntity upLogEntity = UpLogEntity.builder().build();
             upLogEntity.setMessageId(message.getMessageId());
             upLogEntity.setUserId(message.getFrom().getId());
             upLogEntity.setUserName(message.getFrom().getUserName());
@@ -245,7 +247,7 @@ public class SqlService {
                 if (parts.length >= 3) {
                     String chatIdStr = parts[1];
                     String userIdStr = parts[2];
-                    Object bot = applicationContext.getBean("myAmazingBot");
+                    Object bot = applicationContext.getBean("tgBot");
                     if (data.startsWith("SPAM_UNRESTRICT:")) {
                         adminUnrestrictUser(bot, chatIdStr, userIdStr);
                         sendAdminResult("已解除封禁", chatIdStr, userIdStr);
@@ -892,7 +894,7 @@ public class SqlService {
                         String.format("检测到广告消息 - 违规内容: %s", forbiddenWord));
                     
                     // 处理违规消息：撤回、封禁、通知管理员
-                    handleSpamMessage(applicationContext.getBean("myAmazingBot"), update, forbiddenWord);
+                    handleSpamMessage(applicationContext.getBean("tgBot"), update, forbiddenWord);
                     return true;
                 }
             }
@@ -1029,7 +1031,7 @@ public class SqlService {
      */
     private void notifyAdmin(Object bot, Update update, String violationContent) {
         try {
-            String adminGroupId = scoreDao.getAdminGroup();
+            String adminGroupId = groupDao.getAdminGroup();
             if (adminGroupId == null) {
                 LoggingUtils.logError("ADMIN_GROUP_NOT_SET", "管理员群组未设置，无法发送通知", null);
                 return;
@@ -1116,14 +1118,14 @@ public class SqlService {
      */
     private void sendAdminResult(String action, String chatIdStr, String userIdStr) {
         try {
-            String adminGroupId = scoreDao.getAdminGroup();
+            String adminGroupId = groupDao.getAdminGroup();
             if (adminGroupId == null) return;
             String text = String.format("✅ %s\nGroupId: %s\nUserId: %s", action, chatIdStr, userIdStr);
             SendMessage msg = SendMessage.builder()
                 .chatId(adminGroupId)
                 .text(text)
                 .build();
-            Object bot = applicationContext.getBean("myAmazingBot");
+            Object bot = applicationContext.getBean("tgBot");
             bot.getClass().getMethod("replyMessage", SendMessage.class).invoke(bot, msg);
         } catch (Exception e) {
             LoggingUtils.logError("ADMIN_RESULT_NOTIFY_ERROR", "管理员结果通知失败", e);

@@ -2,19 +2,15 @@ package com.bot.aabot.service;
 
 import com.bot.aabot.context.ConstructionEventContext;
 import com.bot.aabot.dao.ScoreDao;
-import com.bot.aabot.entity.EventAchievement;
 import com.bot.aabot.entity.EventRecord;
 import com.bot.aabot.entity.UserActivityLog;
-import com.bot.aabot.entity.UserAchievement;
 import com.bot.aabot.utils.LoggingUtils;
 import com.bot.aabot.utils.BotReplyUtil;
 import com.bot.aabot.utils.TimeFormatUtil;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.ApplicationContext;
 import org.springframework.stereotype.Service;
 import org.springframework.boot.context.properties.ConfigurationProperties;
-import org.springframework.context.annotation.PropertySource;
 import org.telegram.telegrambots.abilitybots.api.objects.MessageContext;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
 import org.telegram.telegrambots.meta.api.objects.Update;
@@ -407,7 +403,7 @@ public class ScoreService {
                 BotReplyUtil.reply(message, update);
             } else {
                 // 无update时直接发送
-                Object bot = applicationContext.getBean("myAmazingBot");
+                Object bot = applicationContext.getBean("tgBot");
                 bot.getClass().getMethod("replyMessage", SendMessage.class).invoke(bot, message);
             }
         } catch (Exception e) {
@@ -767,7 +763,7 @@ public class ScoreService {
            .chatId(ctx.chatId())
            .text("用户" + ctx.update().getMessage().getFrom().getUserName() + "开始创建活动，请按照指引发送响应信息，在创建过程中请不要在任何群聊发送任何其他信息，终止活动创建请发送`cancel!!!`，请您发送活动名称")
            .build();
-       Object bot = applicationContext.getBean("myAmazingBot");
+       Object bot = applicationContext.getBean("tgBot");
        try {
            bot.getClass().getMethod("replyMessage", SendMessage.class).invoke(bot, message);
        } catch (Exception e) {
@@ -788,7 +784,7 @@ public class ScoreService {
             ConstructionEventContext.creator_id = null;
             ConstructionEventContext.constructionEvent = null;
             ConstructionEventContext.eventList = null;
-            Object bot = applicationContext.getBean("myAmazingBot");
+            Object bot = applicationContext.getBean("tgBot");
             try {
                 bot.getClass().getMethod("replyMessage", SendMessage.class).invoke(bot, toMessage);
             } catch (Exception e) {
@@ -801,7 +797,7 @@ public class ScoreService {
                     .chatId(ConstructionEventContext.chatId)
                     .text("请发送活动描述")
                     .build();
-                Object bot = applicationContext.getBean("myAmazingBot");
+                Object bot = applicationContext.getBean("tgBot");
                 bot.getClass().getMethod("replyMessage", SendMessage.class).invoke(bot, toMessage);
             } catch (Exception e) {
                 addEventError(e);
@@ -813,7 +809,7 @@ public class ScoreService {
                     .chatId(ConstructionEventContext.chatId)
                     .text("请发送活动开始时间,时间格式请严格按照`2006-03-26 15:04:05`格式")
                     .build();
-                Object bot = applicationContext.getBean("myAmazingBot");
+                Object bot = applicationContext.getBean("tgBot");
                 bot.getClass().getMethod("replyMessage", SendMessage.class).invoke(bot, toMessage);
             } catch (Exception e) {
                 addEventError(e);
@@ -828,14 +824,14 @@ public class ScoreService {
                     .chatId(ConstructionEventContext.chatId)
                     .text("请发送活动结束时间,时间格式请严格按照`2006-03-26 15:04:05`格式")
                     .build();
-                Object bot = applicationContext.getBean("myAmazingBot");
+                Object bot = applicationContext.getBean("tgBot");
                 bot.getClass().getMethod("replyMessage", SendMessage.class).invoke(bot, toMessage);
             } catch (java.text.ParseException e) {
                 SendMessage toMessage = SendMessage.builder()
                     .chatId(ConstructionEventContext.chatId)
                     .text("时间格式错误，请重新输入，格式为`2006-03-26 15:04:05`")
                     .build();
-                Object bot = applicationContext.getBean("myAmazingBot");
+                Object bot = applicationContext.getBean("tgBot");
                 try {
                     bot.getClass().getMethod("replyMessage", SendMessage.class).invoke(bot, toMessage);
                 } catch (Exception ex) {
@@ -859,7 +855,7 @@ public class ScoreService {
                         .chatId(ConstructionEventContext.chatId)
                         .text("结束时间不能早于开始时间，请重新输入活动开始时间，时间格式请严格按照`2006-03-26 15:04:05`格式")
                         .build();
-                    Object bot = applicationContext.getBean("myAmazingBot");
+                    Object bot = applicationContext.getBean("tgBot");
                     bot.getClass().getMethod("replyMessage", SendMessage.class).invoke(bot, toMessage);
                     return;
                 }
@@ -883,14 +879,14 @@ public class ScoreService {
                     .chatId(ConstructionEventContext.chatId)
                     .text(sb.toString())
                     .build();
-                Object bot = applicationContext.getBean("myAmazingBot");
+                Object bot = applicationContext.getBean("tgBot");
                 bot.getClass().getMethod("replyMessage", SendMessage.class).invoke(bot, toMessage);
             } catch (java.text.ParseException e) {
                 SendMessage toMessage = SendMessage.builder()
                     .chatId(ConstructionEventContext.chatId)
                     .text("时间格式错误，请重新输入，格式为`2006-03-26 15:04:05`")
                     .build();
-                Object bot = applicationContext.getBean("myAmazingBot");
+                Object bot = applicationContext.getBean("tgBot");
                 try {
                     bot.getClass().getMethod("replyMessage", SendMessage.class).invoke(bot, toMessage);
                 } catch (Exception ex) {
@@ -911,7 +907,7 @@ public class ScoreService {
                         .chatId(ConstructionEventContext.chatId)
                         .text("无效的序号，请重新选择")
                         .build();
-                    Object bot = applicationContext.getBean("myAmazingBot");
+                    Object bot = applicationContext.getBean("tgBot");
                     bot.getClass().getMethod("replyMessage", SendMessage.class).invoke(bot, toMessage);
                     return;
                 }
@@ -927,7 +923,7 @@ public class ScoreService {
                     .chatId(ConstructionEventContext.chatId)
                     .text(sb.toString())
                     .build();
-                Object bot = applicationContext.getBean("myAmazingBot");
+                Object bot = applicationContext.getBean("tgBot");
                 bot.getClass().getMethod("replyMessage", SendMessage.class).invoke(bot, toMessage);
             } catch (Exception e) {
                 addEventError(e);
@@ -943,7 +939,7 @@ public class ScoreService {
                         .chatId(ConstructionEventContext.chatId)
                         .text("无效的序号，请重新选择")
                         .build();
-                    Object bot = applicationContext.getBean("myAmazingBot");
+                    Object bot = applicationContext.getBean("tgBot");
                     bot.getClass().getMethod("replyMessage", SendMessage.class).invoke(bot, toMessage);
                     return;
                 }
@@ -964,7 +960,7 @@ public class ScoreService {
                 .chatId(ConstructionEventContext.chatId)
                 .text(messageText)
                 .build();
-            Object bot = applicationContext.getBean("myAmazingBot");
+            Object bot = applicationContext.getBean("tgBot");
             bot.getClass().getMethod("replyMessage", SendMessage.class).invoke(bot, toMessage);
             } catch (Exception e) {
                 addEventError(e);
@@ -977,7 +973,7 @@ public class ScoreService {
                     .chatId(ConstructionEventContext.chatId)
                     .text(reply)
                     .build();
-                Object bot = applicationContext.getBean("myAmazingBot");
+                Object bot = applicationContext.getBean("tgBot");
                 bot.getClass().getMethod("replyMessage", SendMessage.class).invoke(bot, toMessage);
                 // 清空上下文
                 ConstructionEventContext.chatId = null;
@@ -993,7 +989,7 @@ public class ScoreService {
                 .chatId(ConstructionEventContext.chatId)
                 .text("活动创建已取消")
                 .build();
-                Object bot = applicationContext.getBean("myAmazingBot");
+                Object bot = applicationContext.getBean("tgBot");
                 bot.getClass().getMethod("replyMessage", SendMessage.class).invoke(bot, toMessage);
                 ConstructionEventContext.chatId = null;
                 ConstructionEventContext.creator_id = null;
@@ -1017,7 +1013,7 @@ public class ScoreService {
             .chatId(ConstructionEventContext.chatId)
             .text("添加活动失败，请重新使用`/addEvent`命令")
             .build();
-        Object bot = applicationContext.getBean("myAmazingBot");
+        Object bot = applicationContext.getBean("tgBot");
         ConstructionEventContext.chatId = null;
         ConstructionEventContext.creator_id = null;
         ConstructionEventContext.constructionEvent = null;
@@ -1135,7 +1131,7 @@ public class ScoreService {
                     .chatId(chatId)
                     .text("当前群聊没有正在进行的活动。")
                     .build();
-                Object bot = applicationContext.getBean("myAmazingBot");
+                Object bot = applicationContext.getBean("tgBot");
                 bot.getClass().getMethod("replyMessage", SendMessage.class).invoke(bot, message);
                 return;
             }
@@ -1172,7 +1168,7 @@ public class ScoreService {
                     .chatId(chatId)
                     .text(messageBuilder.toString())
                     .build();
-                Object bot = applicationContext.getBean("myAmazingBot");
+                Object bot = applicationContext.getBean("tgBot");
                 bot.getClass().getMethod("replyMessage", SendMessage.class).invoke(bot, message);
             }
             
@@ -1183,7 +1179,7 @@ public class ScoreService {
                 .text("查看积分失败，请稍后再试。")
                 .build();
             try {
-                Object bot = applicationContext.getBean("myAmazingBot");
+                Object bot = applicationContext.getBean("tgBot");
                 bot.getClass().getMethod("replyMessage", SendMessage.class).invoke(bot, errorMessage);
             } catch (Exception ex) {
                 LoggingUtils.logError("VIEW_POINTS_REPLY_ERROR", "发送错误消息失败: " + ex.getMessage(), ex);

@@ -1,8 +1,8 @@
 package com.bot.aabot.task;
 
-import com.bot.aabot.MyAmazingBot;
+import com.bot.aabot.TgBot;
+import com.bot.aabot.service.AIResponseService;
 import com.bot.aabot.service.GPTService;
-import com.bot.aabot.service.SqlService;
 import com.bot.aabot.utils.LoggingUtils;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -30,12 +30,12 @@ import java.util.Set;
 @EnableScheduling
 public class MessageTask {
     @Autowired
-    MyAmazingBot myAmazingBot;
+    TgBot tgBot;
     @Autowired
     GPTService gptService;
     @Autowired
-    SqlService sqlService;
-    
+    AIResponseService aiResponseService;
+
     @Value("${bot.message-queue.poll-interval:60}")
     private int pollInterval;
     
@@ -124,7 +124,7 @@ public class MessageTask {
                     if (currentTime - sendTime >= 30 * 60) {
                         // 消息已超时，处理逻辑
                         if (messageEntity.isQuestion() && !gptService.isBeAnswered(sessionId)) {
-                            sqlService.aitMessage(messageEntity);
+                            aiResponseService.aitMessage(messageEntity);
                             LoggingUtils.logOperation("TIMEOUT_MESSAGE_PROCESSED",
                                 String.valueOf(messageEntity.getUpdate().getMessage().getFrom().getId()),
                                 String.format("处理超时消息 Session[%s]: %s", sessionId, messageEntity.getContent()));

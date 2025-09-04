@@ -1,44 +1,26 @@
 package com.bot.aabot;
 
 import com.bot.aabot.context.ConstructionEventContext;
-import com.bot.aabot.entity.TextMessageEntity;
 import com.bot.aabot.initializer.BotContext;
-import com.bot.aabot.service.GPTService;
-import com.bot.aabot.service.ScoreService;
-import com.bot.aabot.service.SqlService;
+import com.bot.aabot.service.*;
 import com.bot.aabot.utils.LoggingUtils;
-import com.fasterxml.jackson.databind.introspect.AnnotatedClass;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.context.annotation.Bean;
 import org.springframework.scheduling.annotation.Async;
-import org.springframework.scheduling.annotation.EnableAsync;
-import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 import org.springframework.stereotype.Component;
 import org.telegram.telegrambots.abilitybots.api.bot.AbilityBot;
-import org.telegram.telegrambots.abilitybots.api.db.DBContext;
 import org.telegram.telegrambots.abilitybots.api.objects.Ability;
 import org.telegram.telegrambots.abilitybots.api.objects.Locality;
 import org.telegram.telegrambots.abilitybots.api.objects.Privacy;
-import org.telegram.telegrambots.abilitybots.api.toggle.AbilityToggle;
 import org.telegram.telegrambots.client.okhttp.OkHttpTelegramClient;
-import org.telegram.telegrambots.longpolling.interfaces.LongPollingUpdateConsumer;
-import org.telegram.telegrambots.longpolling.starter.SpringLongPollingBot;
-import org.telegram.telegrambots.longpolling.util.LongPollingSingleThreadUpdateConsumer;
 import org.telegram.telegrambots.meta.api.methods.AnswerCallbackQuery;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
-import org.telegram.telegrambots.meta.api.objects.PhotoSize;
 import org.telegram.telegrambots.meta.api.objects.Update;
-import org.telegram.telegrambots.meta.api.objects.message.MaybeInaccessibleMessage;
-import org.telegram.telegrambots.meta.api.objects.message.Message;
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
-import org.telegram.telegrambots.meta.generics.TelegramClient;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.bot.aabot.service.ConfigManagementService;
-import org.telegram.telegrambots.abilitybots.api.objects.MessageContext;
+
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
 
 import java.util.*;
@@ -48,22 +30,25 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 
 import static org.telegram.telegrambots.abilitybots.api.objects.Locality.ALL;
-import static org.telegram.telegrambots.abilitybots.api.objects.Privacy.PUBLIC;
+
 import org.telegram.telegrambots.meta.api.methods.updatingmessages.DeleteMessage;
 import org.telegram.telegrambots.meta.api.methods.groupadministration.BanChatMember;
 import org.telegram.telegrambots.meta.api.methods.groupadministration.RestrictChatMember;
 
 @Slf4j
 @Component
-public class MyAmazingBot extends AbilityBot{
+public class TgBot extends AbilityBot{
+
     @Autowired
-    private GPTService gptService;
+    private CallbackQueryService callbackQueryService;
     @Autowired
-    private SqlService sqlService;
+    private MessageStorageService messageStorageService;
     @Autowired
     private ScoreService scoreService;
     @Autowired
     private ConfigManagementService configManagementService;
+    @Autowired
+    private GroupManagementService groupManagementService;
     @Autowired
     private ObjectMapper objectMapper;
     @Autowired
@@ -71,12 +56,13 @@ public class MyAmazingBot extends AbilityBot{
     @Autowired
     private com.bot.aabot.config.BotConfig botConfig;
 
+
     // 并发处理配置
     
     @Value("${bot.concurrency.message-timeout:30000}")
     private long messageTimeout;
 
-    protected MyAmazingBot() {
+    protected TgBot() {
         super(new OkHttpTelegramClient("7647087531:AAEgk9kpws5RXS0pQg_iauLR1TT75JVjHXU"), "Tgbot");
     }
 
@@ -94,7 +80,7 @@ public class MyAmazingBot extends AbilityBot{
 
         try {
             // 第零层：广告消息过滤（同步处理）
-            if (sqlService.checkAndHandleSpamMessage(update)) {
+            if (messageStorageService.checkAndHandleSpamMessage(update)) {
                 LoggingUtils.logSecurityEvent("SPAM_BLOCKED", userId, "广告消息已被拦截并处理");
                 LoggingUtils.logPerformance("spam_filter", startTime);
                 return; // 拦截广告消息，不继续处理
@@ -180,7 +166,7 @@ public class MyAmazingBot extends AbilityBot{
         CompletableFuture.runAsync(() -> {
             try {
                 // 消息保存
-                sqlService.saveMessage(update);
+                messageStorageService.saveMessage(update);
                 
                 // 处理AbilityBot的消息处理
                 super.consume(update);
@@ -205,7 +191,7 @@ public class MyAmazingBot extends AbilityBot{
         
         CompletableFuture.runAsync(() -> {
             try {
-                sqlService.editMessage(update);
+                messageStorageService.editMessage(update);
                 LoggingUtils.logOperation("EDITED_MESSAGE_PROCESSED", userId, "编辑消息处理完成");
             } catch (Exception e) {
                 LoggingUtils.logError("EDITED_MESSAGE_ERROR", "处理编辑消息失败", e);
@@ -234,7 +220,7 @@ public class MyAmazingBot extends AbilityBot{
                 if (callbackData.startsWith("pointList_")) {
                     handlePointListCallback(update);
                 }else
-                    sqlService.callbackQuery(update);
+                    callbackQueryService.callbackQuery(update);
                 LoggingUtils.logOperation("CALLBACK_QUERY_PROCESSED", userId, "回调查询处理完成");
             } catch (Exception e) {
                 LoggingUtils.logError("CALLBACK_QUERY_ERROR", "处理回调查询失败", e);
@@ -726,7 +712,7 @@ public class MyAmazingBot extends AbilityBot{
                             threadId = String.valueOf(ctx.update().getMessage().getMessageThreadId());
                         }
                         
-                        String result = sqlService.addGroupToResponse(groupId, threadId);
+                        String result = groupManagementService.addGroupToResponse(groupId, threadId);
                         SendMessage message = SendMessage
                                 .builder()
                                 .chatId(groupId)
@@ -772,7 +758,7 @@ public class MyAmazingBot extends AbilityBot{
                             threadId = String.valueOf(ctx.update().getMessage().getMessageThreadId());
                         }
 
-                        String result = sqlService.removeGroupFromResponse(groupId, threadId);
+                        String result = groupManagementService.removeGroupFromResponse(groupId, threadId);
                         SendMessage message = SendMessage
                                 .builder()
                                 .chatId(groupId)
@@ -819,7 +805,7 @@ public class MyAmazingBot extends AbilityBot{
                             threadId = String.valueOf(ctx.update().getMessage().getMessageThreadId());
                         }
 
-                        String result = sqlService.getGroupResponseStatus(charName,groupId, threadId);
+                        String result = groupManagementService.getGroupResponseStatus(charName,groupId, threadId);
                         SendMessage message = SendMessage
                                 .builder()
                                 .chatId(groupId)

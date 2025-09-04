@@ -54,7 +54,12 @@ public class GPTService {
     private static final long SESSION_TIMEOUT_MINUTES = 30;
     private final Map<String, LocalDateTime> sessionLastActivity = new ConcurrentHashMap<>();
     private final ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(1);
-    
+
+    /**
+     * 构造函数，初始化GPT服务
+     * @param chatModel
+     * @param qdrantClientService
+     */
     public GPTService(ChatModel chatModel, @Autowired(required = false) QdrantClientService qdrantClientService) {
         this.chatModel = chatModel;
         this.qdrantClientService = qdrantClientService;
@@ -214,7 +219,7 @@ public class GPTService {
     }
 
     /**
-     * 复杂任务：回答用户问题（使用gpt-4o获得更好效果，Spring AI Chat Memory管理上下文）
+     * 已废弃  复杂任务：回答用户问题（使用gpt-4o获得更好效果，Spring AI Chat Memory管理上下文）
      */
     public GPTAnswer answerUserQuestion(String sessionId, String userQuestion) {
         long startTime = System.currentTimeMillis();

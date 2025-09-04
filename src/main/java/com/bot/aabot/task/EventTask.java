@@ -1,5 +1,6 @@
 package com.bot.aabot.task;
 
+import com.bot.aabot.dao.GroupDao;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.scheduling.annotation.Scheduled;
 
@@ -36,6 +37,8 @@ public class EventTask {
     public JdbcTemplate jdbcTemplate;
     @Autowired
     public ObjectMapper objectMapper;
+    @Autowired
+    private GroupDao groupDao;
 
 
     /**
@@ -47,7 +50,7 @@ public class EventTask {
         LocalDate currentDate = LocalDate.now();
         // 计算前一日日期，用于获取昨日群聊消息进行总结
         LocalDate previousDate = currentDate.minusDays(1);
-        String summaryTargetGroup = scoreDao.getAdminGroup();
+        String summaryTargetGroup = groupDao.getAdminGroup();
         try {
             List<ScoreDao.GroupTopicMessage> groupTopicMessages = scoreDao.getGroupTopicMessagesByDate(previousDate);
             
@@ -204,7 +207,7 @@ public class EventTask {
     public void weeklyMessageSummary() {
         LocalDate currentDate = LocalDate.now();
         LocalDate weekStartDate = currentDate.minusDays(7);
-        String summaryTargetGroup = scoreDao.getAdminGroup();
+        String summaryTargetGroup = groupDao.getAdminGroup();
         try {
             System.out.println();
             

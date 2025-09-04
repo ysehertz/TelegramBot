@@ -116,12 +116,12 @@ CREATE TABLE "res_group" (
 - **新增 `getGroupResponseStatus(groupId, threadId)` 方法**：获取群聊回复状态
 - **修改@机器人处理逻辑**：在第88行之前添加白名单检查
 
-#### 2. 控制层 (MyAmazingBot.java)
+#### 2. 控制层 (TgBot.java)
 - **新增 `/beginres` 指令**：启用当前群聊的回复功能
 - **新增 `/stopres` 指令**：禁用当前群聊的回复功能
 - **新增 `/checkres` 指令**：查看当前群聊的回复状态
 
-#### 3. 数据库初始化 (TableInit.java)
+#### 3. 数据库初始化 (TgBot.java)
 - **添加res_group表创建**：在应用启动时自动创建回复白名单表
 
 ### 技术特性
@@ -176,7 +176,7 @@ CREATE TABLE "res_group" (
   - `isEventStarted()` - 检查活动是否已开始
 - **添加导入**：`import java.util.ArrayList;`
 
-#### 3. 控制层 (MyAmazingBot.java)
+#### 3. 控制层 (TgBot.java)
 - **新增 `pointList()` Ability**：处理`/pointList`命令
 - **修改回调查询处理**：添加积分排名分页回调处理
 - **新增辅助方法**：
@@ -260,7 +260,7 @@ CREATE TABLE "res_group" (
   - 在 `updateBotConfig()` 中添加aiInteraction配置的反序列化和安全处理
 
 #### 4. 机器人指令
-- **MyAmazingBot.java**: 新增两个管理员指令
+- **TgBot.java**: 新增两个管理员指令
   - `/toggleai` - 切换AI互动功能开关（管理员专用）
   - `/aistatus` - 查看AI互动功能当前状态（管理员专用）
 
@@ -327,7 +327,7 @@ CREATE TABLE IF NOT EXISTS admin_group (
 - **新增 `banUser()` 方法**：封禁违规用户指定时间
 - **新增 `notifyAdmin()` 方法**：向管理员群组发送违规通知
 
-#### 4. 控制层 (MyAmazingBot.java)
+#### 4. 控制层 (TgBot.java)
 - **修改 `consume()` 方法**：在第88行之前添加第零层广告过滤检查
 - **添加同步广告检查**：使用同步方式确保违规消息被及时拦截
 
@@ -416,7 +416,7 @@ java.lang.NoSuchFieldException: telegramClient
 
 ### 修复方案
 
-#### 1. 在MyAmazingBot中添加专用方法 (MyAmazingBot.java)
+#### 1. 在TgBot中添加专用方法 (TgBot.java)
 ```java
 // 删除消息方法
 public void deleteMessage(DeleteMessage deleteMessage) {
@@ -504,7 +504,7 @@ ChatPermissions restrictedPermissions = ChatPermissions.builder()
     .build();
 ```
 
-#### 3. 添加新方法 (MyAmazingBot.java)
+#### 3. 添加新方法 (TgBot.java)
 - **新增 `restrictUser(RestrictChatMember restrictChatMember)` 方法**
 - **保留 `banUser()` 方法**：为了向后兼容和特殊情况使用
 
