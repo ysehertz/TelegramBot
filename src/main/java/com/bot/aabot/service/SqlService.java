@@ -1,5 +1,6 @@
 package com.bot.aabot.service;
 
+import com.bot.aabot.config.BotConfig;
 import com.bot.aabot.context.DataContext;
 import com.bot.aabot.context.MessageContext;
 import com.bot.aabot.dao.GroupDao;
@@ -61,13 +62,13 @@ public class SqlService {
     @Autowired
     JdbcTemplate jdbcTemplate;
     
-    // 新增：注入重试和熔断器服务
+    //注入重试和熔断器服务
     @Autowired
     private RetryService retryService;
     @Autowired
     private CircuitBreakerService circuitBreakerService;
     @Autowired
-    private com.bot.aabot.config.BotConfig botConfig;
+    private BotConfig botConfig;
     @Autowired
     private com.bot.aabot.dao.ScoreDao scoreDao;
     @Autowired

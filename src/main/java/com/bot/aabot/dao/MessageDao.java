@@ -38,7 +38,7 @@ public class MessageDao {
         // 将GuideMessage转换为JSON字符串用于数据库存储
         String gptResponse = String.format("{\"reply\":\"%s\",\"guide1\":\"%s\",\"guide2\":\"%s\",\"guide3\":\"%s\"}",
                 guideMessage.getReply(), guideMessage.getGuide1(), guideMessage.getGuide2(), guideMessage.getGuide3());
-        jdbcTemplate.update(sql, update.getCallbackQuery().getData(), update.getCallbackQuery().getMessage().getMessageId(), update.getCallbackQuery().getFrom().getUserName(), update.getCallbackQuery().getFrom().getId(), gptResponse, user);
+        jdbcTemplate.update(sql, update.getMessage().getText(), update.getMessage().getMessageId(), update.getMessage().getFrom().getUserName(), update.getMessage().getFrom().getId(), gptResponse, user);
     }
 
     /**
