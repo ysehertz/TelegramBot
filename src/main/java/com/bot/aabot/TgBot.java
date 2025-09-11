@@ -300,28 +300,28 @@ public class TgBot extends AbilityBot{
         }
     }
 
-//    /**
-//     * 添加活动
-//     * @return
-//     */
-//    public Ability addEvent() {
-//        return Ability
-//                .builder()
-//                .name("addevent")
-//                .info("添加活动")
-//                .locality(Locality.ALL)
-//                .privacy(Privacy.ADMIN)
-//                .action((ctx) -> {
-//                    try {
-//                        scoreService.addEvent(ctx);
-//                    } catch (Exception e) {
-//                        LoggingUtils.logError("ADD_EVENT_ERROR", "添加活动失败", e);
-//                        silent.send("添加活动失败", ctx.chatId());
-//                    }
-//                })
-//                .build();
-//    }
-//
+    /**
+     * 添加活动
+     * @return
+     */
+    public Ability addEvent() {
+        return Ability
+                .builder()
+                .name("addevent")
+                .info("添加活动")
+                .locality(Locality.ALL)
+                .privacy(Privacy.ADMIN)
+                .action((ctx) -> {
+                    try {
+                        scoreService.addEvent(ctx);
+                    } catch (Exception e) {
+                        LoggingUtils.logError("ADD_EVENT_ERROR", "添加活动失败", e);
+                        silent.send("添加活动失败", ctx.chatId());
+                    }
+                })
+                .build();
+    }
+
 
 
 //    public Ability startAbility() {
