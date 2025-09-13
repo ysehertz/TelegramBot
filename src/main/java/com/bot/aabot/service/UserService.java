@@ -7,6 +7,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.telegram.telegrambots.meta.api.methods.groupadministration.BanChatMember;
+
 import java.util.List;
 
 /**
@@ -24,8 +25,10 @@ public class UserService {
 
     @Autowired
     private GroupDao groupDao;
+
     /**
      * 封禁用户
+     *
      * @param bot
      * @param chatIdStr
      * @param userIdStr
@@ -55,7 +58,7 @@ public class UserService {
                 BanChatMember ban = BanChatMember.builder()
                         .chatId(chatIdStr)
                         .userId(userId)
-                        .untilDate((int)(System.currentTimeMillis()/1000 + 365*24*3600))
+                        .untilDate((int) (System.currentTimeMillis() / 1000 + 365 * 24 * 3600))
                         .build();
                 bot.getClass().getMethod("banUser", BanChatMember.class).invoke(bot, ban);
                 LoggingUtils.logOperation("BLACKLIST_DONE", userIdStr, "已加入黑名单并踢出群聊");
@@ -69,6 +72,7 @@ public class UserService {
 
     /**
      * 获取用户名称
+     *
      * @param user
      * @return
      */

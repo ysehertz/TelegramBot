@@ -12,6 +12,7 @@ import org.springframework.stereotype.Component;
 import org.telegram.telegrambots.abilitybots.api.bot.AbilityBot;
 import org.telegram.telegrambots.abilitybots.api.objects.Ability;
 import org.telegram.telegrambots.abilitybots.api.objects.Locality;
+import org.telegram.telegrambots.abilitybots.api.objects.MessageContext;
 import org.telegram.telegrambots.abilitybots.api.objects.Privacy;
 import org.telegram.telegrambots.client.okhttp.OkHttpTelegramClient;
 import org.telegram.telegrambots.meta.api.methods.AnswerCallbackQuery;
@@ -30,6 +31,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 
 import static org.telegram.telegrambots.abilitybots.api.objects.Locality.ALL;
+import static org.telegram.telegrambots.abilitybots.api.objects.Privacy.PUBLIC;
 
 import org.telegram.telegrambots.meta.api.methods.updatingmessages.DeleteMessage;
 import org.telegram.telegrambots.meta.api.methods.groupadministration.BanChatMember;
@@ -219,8 +221,9 @@ public class TgBot extends AbilityBot{
                 String callbackData = update.getCallbackQuery().getData();
                 if (callbackData.startsWith("pointList_")) {
                     handlePointListCallback(update);
-                }else
+                }else {
                     callbackQueryService.callbackQuery(update);
+                }
                 LoggingUtils.logOperation("CALLBACK_QUERY_PROCESSED", userId, "回调查询处理完成");
             } catch (Exception e) {
                 LoggingUtils.logError("CALLBACK_QUERY_ERROR", "处理回调查询失败", e);
@@ -384,60 +387,60 @@ public class TgBot extends AbilityBot{
 //                .build();
 //    }
 
-//    public Ability showConfig() {
-//        return Ability
-//                .builder()
-//                .name("showconfig")
-//                .info("显示当前配置")
-//                .locality(ALL)
-//                .privacy(PUBLIC)
-//                .action((MessageContext ctx) -> {
-//                    try {
-//                        Map<String, Object> config = configManagementService.getCurrentConfig();
-//                        String configJson = objectMapper.writerWithDefaultPrettyPrinter().writeValueAsString(config);
-//                        silent.send("当前配置：\n" + configJson, ctx.chatId());
-//                        LoggingUtils.logOperation("SHOW_CONFIG", String.valueOf(ctx.chatId()), "显示当前配置");
-//                    } catch (Exception e) {
-//                        LoggingUtils.logError("SHOW_CONFIG_ERROR", "显示配置失败", e);
-//                        silent.send("获取配置失败：" + e.getMessage(), ctx.chatId());
-//                    }
-//                })
-//                .build();
-//    }
+    public Ability showConfig() {
+        return Ability
+                .builder()
+                .name("showconfig")
+                .info("显示当前配置")
+                .locality(ALL)
+                .privacy(PUBLIC)
+                .action((MessageContext ctx) -> {
+                    try {
+                        Map<String, Object> config = configManagementService.getCurrentConfig();
+                        String configJson = objectMapper.writerWithDefaultPrettyPrinter().writeValueAsString(config);
+                        silent.send("当前配置：\n" + configJson, ctx.chatId());
+                        LoggingUtils.logOperation("SHOW_CONFIG", String.valueOf(ctx.chatId()), "显示当前配置");
+                    } catch (Exception e) {
+                        LoggingUtils.logError("SHOW_CONFIG_ERROR", "显示配置失败", e);
+                        silent.send("获取配置失败：" + e.getMessage(), ctx.chatId());
+                    }
+                })
+                .build();
+    }
 
-//    public Ability updateConfig() {
-//        return Ability
-//                .builder()
-//                .name("updateconfig")
-//                .info("更新配置")
-//                .locality(ALL)
-//                .privacy(PUBLIC)
-//                .action((MessageContext ctx) -> {
-//                    try {
-//                        String[] args = ctx.arguments();
-//                        if (args.length < 2) {
-//                            silent.send("用法：/updateconfig <配置路径> <新值>\n例如：/updateconfig message.conversation_timeout 30", ctx.chatId());
-//                            return;
-//                        }
-//
-//                        String path = args[0];
-//                        String value = args[1];
-//
-//                        // 将路径转换为Map结构
-//                        Map<String, Object> updates = createUpdateMap(path, value);
-//
-//                        // 更新配置
-//                        configManagementService.updateConfig(updates);
-//
-//                        silent.send("配置已更新", ctx.chatId());
-//                        LoggingUtils.logOperation("UPDATE_CONFIG", String.valueOf(ctx.chatId()), "更新配置成功");
-//                    } catch (Exception e) {
-//                        LoggingUtils.logError("UPDATE_CONFIG_ERROR", "更新配置失败", e);
-//                        silent.send("更新配置失败", ctx.chatId());
-//                    }
-//                })
-//                .build();
-//    }
+    public Ability updateConfig() {
+        return Ability
+                .builder()
+                .name("updateconfig")
+                .info("更新配置")
+                .locality(ALL)
+                .privacy(PUBLIC)
+                .action((MessageContext ctx) -> {
+                    try {
+                        String[] args = ctx.arguments();
+                        if (args.length < 2) {
+                            silent.send("用法：/updateconfig <配置路径> <新值>\n例如：/updateconfig message.conversation_timeout 30", ctx.chatId());
+                            return;
+                        }
+
+                        String path = args[0];
+                        String value = args[1];
+
+                        // 将路径转换为Map结构
+                        Map<String, Object> updates = createUpdateMap(path, value);
+
+                        // 更新配置
+                        configManagementService.updateConfig(updates);
+
+                        silent.send("配置已更新", ctx.chatId());
+                        LoggingUtils.logOperation("UPDATE_CONFIG", String.valueOf(ctx.chatId()), "更新配置成功");
+                    } catch (Exception e) {
+                        LoggingUtils.logError("UPDATE_CONFIG_ERROR", "更新配置失败", e);
+                        silent.send("更新配置失败", ctx.chatId());
+                    }
+                })
+                .build();
+    }
 
     private Map<String, Object> createUpdateMap(String path, String value) {
         String[] parts = path.split("\\.");
@@ -473,6 +476,10 @@ public class TgBot extends AbilityBot{
         }
     }
 
+    /**
+     * 将群聊记录到数据库中
+     * @return
+     */
     public Ability initChat(){
         return Ability
                 .builder()
@@ -490,6 +497,10 @@ public class TgBot extends AbilityBot{
                 .build();
     }
 
+    /**
+     * 设置管理员群组
+     * @return
+     */
     public Ability initAdminGroup(){
         return Ability
                 .builder()
@@ -508,76 +519,76 @@ public class TgBot extends AbilityBot{
                 .build();
     }
 
-//    /**
-//     * 添加特殊积分给用户
-//     * @return
-//     */
-//    public Ability addPoints() {
-//        return Ability
-//                .builder()
-//                .name("addpoints")
-//                .info("为用户添加特殊积分")
-//                .locality(Locality.ALL)
-//                .privacy(Privacy.ADMIN)
-//                .action((ctx) -> {
-//                    try {
-//                        String[] args = ctx.arguments();
-//                        if (args.length < 2) {
-//                            silent.send("用法: /addpoints <数字> @用户名", ctx.chatId());
-//                            return;
-//                        }
-//
-//                        // 解析积分数量
-//                        int points;
-//                        try {
-//                            points = Integer.parseInt(args[0]);
-//                        } catch (NumberFormatException e) {
-//                            silent.send("错误：积分数量必须是数字", ctx.chatId());
-//                            return;
-//                        }
-//
-//                        // 获取用户名
-//                        String userName = args[1];
-//
-//                        // 调用服务方法添加积分
-//                        String result = scoreService.addPointsToUser(
-//                            String.valueOf(ctx.chatId()),
-//                            userName,
-//                            points
-//                        );
-//
-//                        silent.send(result, ctx.chatId());
-//
-//                    } catch (Exception e) {
-//                        LoggingUtils.logError("ADD_POINTS_ERROR", "添加积分失败", e);
-//                        silent.send("添加积分失败", ctx.chatId());
-//                    }
-//                })
-//                .build();
-//    }
+    /**
+     * 添加特殊积分给用户
+     * @return
+     */
+    public Ability addPoints() {
+        return Ability
+                .builder()
+                .name("addpoints")
+                .info("为用户添加特殊积分")
+                .locality(Locality.ALL)
+                .privacy(Privacy.ADMIN)
+                .action((ctx) -> {
+                    try {
+                        String[] args = ctx.arguments();
+                        if (args.length < 2) {
+                            silent.send("用法: /addpoints <数字> @用户名", ctx.chatId());
+                            return;
+                        }
+
+                        // 解析积分数量
+                        int points;
+                        try {
+                            points = Integer.parseInt(args[0]);
+                        } catch (NumberFormatException e) {
+                            silent.send("错误：积分数量必须是数字", ctx.chatId());
+                            return;
+                        }
+
+                        // 获取用户名
+                        String userName = args[1];
+
+                        // 调用服务方法添加积分
+                        String result = scoreService.addPointsToUser(
+                            String.valueOf(ctx.chatId()),
+                            userName,
+                            points
+                        );
+
+                        silent.send(result, ctx.chatId());
+
+                    } catch (Exception e) {
+                        LoggingUtils.logError("ADD_POINTS_ERROR", "添加积分失败", e);
+                        silent.send("添加积分失败", ctx.chatId());
+                    }
+                })
+                .build();
+    }
 
 
-//    /**
-//     * 普通用户查看自己的积分
-//     */
-//    public Ability viewPoints() {
-//        return Ability
-//                .builder()
-//                .name("viewpoint")
-//                .info("查看自己的积分")
-//                .locality(Locality.ALL)
-//                .privacy(Privacy.PUBLIC)
-//                .action((ctx)->{
-//                    try {
-//                        scoreService.viewPoints(ctx);
-//                    } catch (Exception e) {
-//                        LoggingUtils.logError("VIEW_POINTS_ERROR", "查看积分失败", e);
-//                        silent.send("查看积分失败", ctx.chatId());
-//                    }
-//
-//                })
-//                .build();
-//    }
+    /**
+     * 普通用户查看自己的积分
+     */
+    public Ability viewPoints() {
+        return Ability
+                .builder()
+                .name("viewpoint")
+                .info("查看自己的积分")
+                .locality(Locality.ALL)
+                .privacy(PUBLIC)
+                .action((ctx)->{
+                    try {
+                        scoreService.viewPoints(ctx);
+                    } catch (Exception e) {
+                        LoggingUtils.logError("VIEW_POINTS_ERROR", "查看积分失败", e);
+                        silent.send("查看积分失败", ctx.chatId());
+                    }
+
+                })
+                .build();
+    }
 
     /**
      * 管理员查看活动积分排名
@@ -718,8 +729,9 @@ public class TgBot extends AbilityBot{
                                 .chatId(groupId)
                                 .text(result)
                                 .build();
-                        if(threadId != null)
+                        if(threadId != null) {
                             message.setMessageThreadId(Integer.parseInt(threadId));
+                        }
                         this.replyMessage(message);
 //                        silent.send(result, ctx.chatId());
                         
@@ -764,8 +776,9 @@ public class TgBot extends AbilityBot{
                                 .chatId(groupId)
                                 .text(result)
                                 .build();
-                        if(threadId != null)
+                        if(threadId != null) {
                             message.setMessageThreadId(Integer.parseInt(threadId));
+                        }
                         this.replyMessage(message);
                         
                         LoggingUtils.logOperation("STOP_RESPONSE_COMMAND", 
@@ -811,8 +824,9 @@ public class TgBot extends AbilityBot{
                                 .chatId(groupId)
                                 .text(result)
                                 .build();
-                        if(threadId != null)
+                        if(threadId != null) {
                             message.setMessageThreadId(Integer.parseInt(threadId));
+                        }
                         this.replyMessage(message);
                         
                     } catch (Exception e) {
@@ -993,7 +1007,9 @@ public class TgBot extends AbilityBot{
     }
 
     private String cleanForbiddenWord(String text) {
-        if (text == null) return "";
+        if (text == null) {
+            return "";
+        }
         return text.replaceAll("[\\s,。;、]", "").toLowerCase();
     }
 
