@@ -1,0 +1,39 @@
+spring:
+  datasource:
+    type: com.zaxxer.hikari.HikariDataSource
+    driver-class-name: org.sqlite.JDBC
+    url: ""
+  ai:
+    openai:
+      api-key: ""
+      chat:
+        options:
+          model: gpt-4o
+          temperature: 0.7
+      embedding:
+        options:
+          model: text-embedding-3-large
+    vectorstore:
+      qdrant:
+        host: ""
+        port: 6334
+        api-key: ""
+        collection-name: "test"
+        use-tls: true
+
+# 日志级别配置
+logging:
+  level:
+    root: INFO
+    com.bot.aabot.service: INFO
+    com.bot.aabot.utils: INFO
+  file:
+    path: /app/logs/tgLog
+  logback:
+    rollingpolicy:
+      max-file-size: 10MB
+      max-history: 30
+      total-size-cap: 5GB
+  cleanup:
+    days: 30
+    enabled: true

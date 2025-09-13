@@ -1,0 +1,79 @@
+spring:
+  profiles:
+    active: ${SPRING_PROFILES_ACTIVE:dev}
+  datasource:
+    type: com.zaxxer.hikari.HikariDataSource
+    driver-class-name: org.sqlite.JDBC
+  ai:
+    openai:
+      api-key: ""
+      chat:
+        options:
+          model: gpt-4o
+          temperature: 0.7
+      embedding:
+        options:
+          model: text-embedding-3-large
+    vectorstore:
+      qdrant:
+        host: ""
+        port: 6334
+        api-key: ""
+        collection-name: "test"
+        use-tls: true
+  config:
+    import: bot-config-${spring.profiles.active:dev}.yml,score-config.yml
+
+# Bot相关配置
+bot:
+  name: ""
+  # AI模型配置
+  ai:
+    simple-temperature: 0.1   # 简单判断任务温度
+    complex-temperature: 0.7  # 复杂任务温度
+  # 消息队列配置
+  message-queue:
+    max-size: 500        # 总消息队列最大容量
+    max-session-size: 100 # 单个session队列最大容量
+    poll-interval: 60     # 队列轮询间隔（秒）
+    batch-size: 10        # 批处理大小
+  # 异步处理配置
+  async:
+    core-pool-size: 5     # 核心线程数
+    max-pool-size: 20     # 最大线程数
+    queue-capacity: 500   # 线程池队列容量
+    thread-name-prefix: "bot-async-"
+  # 高并发处理配置
+  concurrency:
+    message-timeout: 50000    # 消息处理超时时间（毫秒）
+    max-retries: 3           # 最大重试次数
+    circuit-breaker-threshold: 10  # 熔断器阈值
+    # 重试配置
+    retry-delay: 1000        # 重试延迟（毫秒）
+    retry-backoff-multiplier: 2  # 退避倍数
+    # 熔断器配置
+    circuit-breaker-timeout: 60000  # 熔断恢复时间（毫秒）
+
+# 日志级别配置
+logging:
+  level:
+    root: INFO
+    com.bot.aabot.service: INFO
+    com.bot.aabot.utils: INFO
+#  file:
+    # 日志路径在各环境配置中设置
+  logback:
+    rollingpolicy:
+      max-file-size: 10MB
+      max-history: 30
+      total-size-cap: 5GB
+  cleanup:
+    days: 30
+    enabled: true
+
+# Docker运行示例
+#  docker run -d \
+#  -v /home/ec2-user/data/message_logs:/app/logs \
+#  --name TgBot \
+#  -it\
+#  tg-bot:1
